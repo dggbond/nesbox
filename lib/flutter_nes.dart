@@ -1,7 +1,10 @@
 library flutter_nes;
 
-/// A Calculator.
-class Calculator {
-  /// Returns [value] plus 1.
-  int addOne(int value) => value + 2;
+import 'package:flutter_nes/flutter_nes_cpu.dart';
+
+class NesEmulator {
+  NesCpu _cpu = NesCpu();
+
+  // load nes file
+  load() {}
 }
