@@ -9,8 +9,7 @@ A nes emulator
 - [x] multiple players from WIFI or bluetooth
 
 ## References
-docs:
-- [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
+nes dev docs:
 - [NESDoc](http://nesdev.com/NESDoc.pdf)
 - [NESDev](http://wiki.nesdev.com/w/index.php/Nesdev)
 
@@ -20,3 +19,12 @@ blogs:
 
 nesfiles:
 - [nesfiles](https://www.nesfiles.com/)
+
+6502 CPU:
+- [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
+- [emualtor101](http://www.emulator101.com/6502-emulator.html)
+
+## Other nes emulators
+- [fogleman/nes](https://github.com/fogleman/nes): written in go.
+- [bfirsh/jsnes](https://github.com/bfirsh/jsnes): written in javascript.
+- [yizhang82/neschan](https://github.com/yizhang82/neschan): written in c++;
