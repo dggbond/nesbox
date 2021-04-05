@@ -1,6 +1,6 @@
 library flutter_nes;
 
-import 'dart:typed_data';
+import "dart:typed_data";
 
 class NesRom {
   NesRom(this._data);
@@ -9,6 +9,10 @@ class NesRom {
 
   // program counter
   int read(int pc) {
+    if (pc >= _data.length) {
+      return null;
+    }
+
     return _data[pc];
   }
 }
