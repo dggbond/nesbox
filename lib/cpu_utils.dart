@@ -36,7 +36,11 @@ class Int8Util {
     return num & 0xff == 0 ? 1 : 0;
   }
 
-  static int isOverMax(int num) {
-    return num > 0x7f ? 1 : 0;
+  static int isOverflow(int num) {
+    return (num > 0x7f || num < -0x7f) ? 1 : 0;
+  }
+
+  static int join(int a, int b) {
+    return (a << 2 + b) & 0xff;
   }
 }
