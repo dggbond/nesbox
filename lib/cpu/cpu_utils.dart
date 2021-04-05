@@ -12,12 +12,12 @@ class Int8Util {
   // targetBit is right to left, eg: 00000x00, x is index 2
   static int setBitValue(int num, int targetBit, int value) {
     if (value != 0 && value != 1) {
-      throw ('value param must be 0 or 1, got $value');
+      throw ("value param must be 0 or 1, got $value");
     }
 
-    String bitStr = '11111111';
+    String bitStr = "11111111";
     int index = bitStr.length - targetBit;
-    return num & int.parse(bitStr.replaceRange(index, index, '0'), radix: 2) | value;
+    return num & int.parse(bitStr.replaceRange(index, index, "0"), radix: 2) | value;
   }
 
   static int getBitValue(int num, int targetBit) {
@@ -45,6 +45,6 @@ class Int8Util {
   }
 
   static String toBinaryString(int num) {
-    return '${(num & 0xff).toRadixString(2).padLeft(8, '0')}';
+    return "${(num & 0xff).toRadixString(2).padLeft(8, "0")}";
   }
 }

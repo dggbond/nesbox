@@ -1,13 +1,13 @@
 library flutter_nes;
 
-import 'dart:typed_data';
+import "dart:typed_data";
 
-import 'package:logger/logger.dart';
+import "package:logger/logger.dart";
 
-import 'package:flutter_nes/cpu/cpu.dart' show NesCpu;
-import 'package:flutter_nes/cpu/cpu_enum.dart';
-import 'package:flutter_nes/rom.dart' show NesRom;
-import 'package:flutter_nes/mapper.dart' show NesMapper;
+import "package:flutter_nes/cpu/cpu.dart" show NesCpu;
+import "package:flutter_nes/cpu/cpu_enum.dart";
+import "package:flutter_nes/rom.dart" show NesRom;
+import "package:flutter_nes/mapper.dart" show NesMapper;
 
 class NesEmulator {
   NesEmulator({
@@ -39,7 +39,7 @@ class NesEmulator {
 
   // start run the nes program
   run() {
-    if (_logger != null) _logger.i('start run');
+    if (_logger != null) _logger.i("start run");
 
     cpu.logRegisterStatus();
     while (true) {
@@ -53,7 +53,7 @@ class NesEmulator {
 
       Op op = findOp(opcode);
       if (op == null) {
-        throw ('rom address 0x${pc.toRadixString(16)} is unknown instruction.');
+        throw ("rom address 0x${pc.toRadixString(16).padLeft(2, "0")} is unknown instruction.");
       }
 
       cpu.emulate(op, _getNextBytes(op, pc));

@@ -1,15 +1,15 @@
 library cpu;
 
-import 'dart:convert';
-import 'dart:typed_data';
+import "dart:convert";
+import "dart:typed_data";
 
-import 'package:flutter/services.dart';
-import 'package:logger/logger.dart';
+import "package:flutter/services.dart";
+import "package:logger/logger.dart";
 
-import 'cpu_enum.dart';
-import 'cpu_utils.dart' show Int8Util;
+import "cpu_enum.dart";
+import "cpu_utils.dart" show Int8Util;
 
-import 'package:flutter_nes/memory.dart';
+import "package:flutter_nes/memory.dart";
 
 // emualtor for 6502 CPU
 class NesCpu {
@@ -37,7 +37,7 @@ class NesCpu {
     int extraCycles = 0;
     int extraBytes = 0;
 
-    if (logger != null) logger.v(op.toJSON() + '\n' + nextBytes.toString());
+    if (logger != null) logger.v(op.toJSON() + "\n" + nextBytes.toString());
 
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
@@ -109,7 +109,7 @@ class NesCpu {
         break;
 
       default:
-        throw ('cpu emulate: ${op.addrMode} is an unknown addressing mode.');
+        throw ("cpu emulate: ${op.addrMode} is an unknown addressing mode.");
     }
 
     // this means is addressing 16bit addr, so it takes one more cycle.
@@ -121,7 +121,7 @@ class NesCpu {
       case Instr.ADC:
         int result = value + _regACC + _getCarryFlag();
 
-        // if you don't understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
+        // if you don"t understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
         if (Int8Util.isSameSign(_regACC, value) && !Int8Util.isSameSign(_regACC, result)) {
           _setOverflowFlag(1);
         } else {
@@ -499,7 +499,7 @@ class NesCpu {
         break;
 
       default:
-        throw ('cpu emulate: ${op.instr} is an unknown instruction.');
+        throw ("cpu emulate: ${op.instr} is an unknown instruction.");
     }
 
     _regPC += op.bytes + extraBytes;
@@ -579,7 +579,7 @@ class NesCpu {
         },
       );
 
-      logger.v('register status: ' + status);
+      logger.v("register status: " + status);
     }
   }
 }

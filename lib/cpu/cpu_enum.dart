@@ -1,6 +1,6 @@
 library cpu;
 
-import 'dart:convert';
+import "dart:convert";
 
 // http://nesdev.com/NESDoc.pdf, see Appendix E Addressing Mode
 enum AddrMode {
@@ -100,7 +100,7 @@ class Op {
   toJSON() {
     var encoder = new JsonEncoder.withIndent("  ");
 
-    return 'op: ' +
+    return "op: " +
         encoder.convert({
           "instr   ": instr.toString(),
           "addrMode": addrMode.toString(),

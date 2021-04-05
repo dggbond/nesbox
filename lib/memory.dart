@@ -1,6 +1,6 @@
 library flutter_nes;
 
-import 'dart:typed_data';
+import "dart:typed_data";
 
 class NesCpuMemory {
   NesCpuMemory();
@@ -64,12 +64,12 @@ class NesCpuMemory {
       return _mem[address];
     }
 
-    throw ("addressing 0x${address.toRadixString(16)} failed. this address is overflow memory size.");
+    throw ("addressing 0x${address.toRadixString(16).padLeft(4, "0")} failed. this address is overflow memory size.");
   }
 
   void write(int address, int value) {
     if (value >= SIZE) {
-      throw ("addressing 0x${address.toRadixString(16)} failed. this address is overflow memory size.");
+      throw ("addressing 0x${address.toRadixString(16).padLeft(4, "0")} failed. this address is overflow memory size.");
     }
 
     _mem[address] = value;
