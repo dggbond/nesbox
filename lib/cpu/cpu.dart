@@ -1,19 +1,30 @@
-library flutter_nes;
+library cpu;
 
+import 'dart:convert';
 import 'dart:typed_data';
 
+import 'package:flutter/services.dart';
+import 'package:logger/logger.dart';
+
+import 'cpu_enum.dart';
+import 'cpu_utils.dart' show Int8Util;
+
 import 'package:flutter_nes/memory.dart';
-import 'package:flutter_nes/cpu_enum.dart';
-import 'package:flutter_nes/cpu_utils.dart' show Int8Util;
 
 // emualtor for 6502 CPU
 class NesCpu {
+  NesCpu({
+    this.logger,
+  });
+
   NesCpuMemory _memory = NesCpuMemory();
+
+  Logger logger;
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
   int _regPC = 0; // Program Counter, the only 16-bit register, others are 8-bit
-  int _regSP = 0x100; // Stack Pointer register
+  int _regSP = 0xff; // Stack Pointer register
   int _regPS = 0; // Processor Status register
   int _regACC = 0; // Accumulator register
   int _regX = 0; // Index register, used for indexed addressing mode
@@ -25,6 +36,8 @@ class NesCpu {
     int value = 0; // the value in memory address of addr
     int extraCycles = 0;
     int extraBytes = 0;
+
+    if (logger != null) logger.v(op.toJSON() + '\n' + nextBytes.toString());
 
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
@@ -104,8 +117,8 @@ class NesCpu {
       extraCycles++;
     }
 
-    switch (op.ins) {
-      case InsEnum.ADC:
+    switch (op.instr) {
+      case Instr.ADC:
         int result = value + _regACC + _getCarryFlag();
 
         // if you don't understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
@@ -122,14 +135,14 @@ class NesCpu {
         _regACC = result & 0xff;
         break;
 
-      case InsEnum.AND:
+      case Instr.AND:
         _regACC = _regACC & value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
         _setNegativeFlag(Int8Util.isNegative(_regACC));
         break;
 
-      case InsEnum.ASL:
+      case Instr.ASL:
         int result = value << 1;
 
         if (op.addrMode == AddrMode.Accumulator) {
@@ -143,28 +156,28 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.BCC:
+      case Instr.BCC:
         if (_getCarryFlag() == 0) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BCS:
+      case Instr.BCS:
         if (_getCarryFlag() == 1) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BEQ:
+      case Instr.BEQ:
         if (_getZeroFlag() == 1) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BIT:
+      case Instr.BIT:
         int result = value & _regACC;
 
         _setZeroFlag(Int8Util.isZero(result));
@@ -172,28 +185,28 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(value));
         break;
 
-      case InsEnum.BMI:
+      case Instr.BMI:
         if (_getNegativeFlag() == 1) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BNE:
+      case Instr.BNE:
         if (_getZeroFlag() == 0) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BPL:
+      case Instr.BPL:
         if (_getNegativeFlag() == 0) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BRK:
+      case Instr.BRK:
         _pushStack(_regPC);
         _pushStack(_regPS);
 
@@ -201,37 +214,37 @@ class NesCpu {
         _setBreakCommandFlag(1);
         break;
 
-      case InsEnum.BVC:
+      case Instr.BVC:
         if (_getOverflowFlag() == 0) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.BVS:
+      case Instr.BVS:
         if (_getOverflowFlag() == 1) {
           extraBytes = value;
           extraCycles++;
         }
         break;
 
-      case InsEnum.CLC:
+      case Instr.CLC:
         _setCarryFlag(0);
         break;
 
-      case InsEnum.CLD:
+      case Instr.CLD:
         _setDecimalModeFlag(0);
         break;
 
-      case InsEnum.CLI:
+      case Instr.CLI:
         _setInterruptDisableFlag(0);
         break;
 
-      case InsEnum.CLV:
+      case Instr.CLV:
         _setOverflowFlag(0);
         break;
 
-      case InsEnum.CMP:
+      case Instr.CMP:
         int result = _regACC - value;
 
         _setCarryFlag(result > 0 ? 1 : 0);
@@ -239,7 +252,7 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.CPX:
+      case Instr.CPX:
         int result = _regX - value;
 
         _setCarryFlag(result > 0 ? 1 : 0);
@@ -247,7 +260,7 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.CPY:
+      case Instr.CPY:
         int result = _regY - value;
 
         _setCarryFlag(result > 0 ? 1 : 0);
@@ -255,7 +268,7 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.DEC:
+      case Instr.DEC:
         int result = value - 1;
 
         _setZeroFlag(Int8Util.isZero(result));
@@ -263,28 +276,28 @@ class NesCpu {
         _memory.write(addr, result & 0xff);
         break;
 
-      case InsEnum.DEX:
+      case Instr.DEX:
         _regX -= 1;
 
         _setZeroFlag(Int8Util.isZero(_regX));
         _setNegativeFlag(Int8Util.isNegative(_regX));
         break;
 
-      case InsEnum.DEY:
+      case Instr.DEY:
         _regY -= 1;
 
         _setZeroFlag(Int8Util.isZero(_regY));
         _setNegativeFlag(Int8Util.isNegative(_regY));
         break;
 
-      case InsEnum.EOR:
+      case Instr.EOR:
         _regACC = _regACC ^ value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
         _setNegativeFlag(Int8Util.isNegative(_regACC));
         break;
 
-      case InsEnum.INC:
+      case Instr.INC:
         value = (value + 1) & 0xff;
 
         _setZeroFlag(Int8Util.isZero(value));
@@ -292,51 +305,51 @@ class NesCpu {
         _memory.write(addr, value);
         break;
 
-      case InsEnum.INX:
+      case Instr.INX:
         _regX += 1;
 
         _setZeroFlag(Int8Util.isZero(_regX));
         _setNegativeFlag(Int8Util.isNegative(_regX));
         break;
 
-      case InsEnum.INY:
+      case Instr.INY:
         _regY += 1;
 
         _setZeroFlag(Int8Util.isZero(_regY));
         _setNegativeFlag(Int8Util.isNegative(_regY));
         break;
 
-      case InsEnum.JMP:
+      case Instr.JMP:
         _regPC = value & 0xff;
         break;
 
-      case InsEnum.JSR:
+      case Instr.JSR:
         _pushStack(_regPC - 1);
         _regPC = addr;
         break;
 
-      case InsEnum.LDA:
+      case Instr.LDA:
         _regACC = value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
         _setNegativeFlag(Int8Util.isNegative(_regACC));
         break;
 
-      case InsEnum.LDX:
+      case Instr.LDX:
         _regX = value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regX));
         _setNegativeFlag(Int8Util.isNegative(_regX));
         break;
 
-      case InsEnum.LDY:
+      case Instr.LDY:
         _regY = value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regY));
         _setNegativeFlag(Int8Util.isNegative(_regY));
         break;
 
-      case InsEnum.LSR:
+      case Instr.LSR:
         int result = value >> 1;
 
         if (op.addrMode == AddrMode.Accumulator) {
@@ -350,34 +363,34 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.NOP:
+      case Instr.NOP:
         // no operation
         break;
 
-      case InsEnum.ORA:
+      case Instr.ORA:
         _regACC = _regACC | value & 0xff;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
         _setNegativeFlag(Int8Util.isNegative(_regACC));
         break;
 
-      case InsEnum.PHA:
+      case Instr.PHA:
         _pushStack(_regACC);
         break;
 
-      case InsEnum.PHP:
+      case Instr.PHP:
         _pushStack(_regPS);
         break;
 
-      case InsEnum.PLA:
+      case Instr.PLA:
         _regACC = _popStack();
         break;
 
-      case InsEnum.PLP:
+      case Instr.PLP:
         _regPS = _popStack();
         break;
 
-      case InsEnum.ROL:
+      case Instr.ROL:
         int result = Int8Util.setBitValue(value << 1, 0, _getCarryFlag());
 
         if (op.addrMode == AddrMode.Accumulator) {
@@ -391,7 +404,7 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.ROR:
+      case Instr.ROR:
         int result = Int8Util.setBitValue(value >> 1, 7, _getCarryFlag());
 
         if (op.addrMode == AddrMode.Accumulator) {
@@ -405,15 +418,15 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.RTI:
+      case Instr.RTI:
         _regPS = _popStack();
         break;
 
-      case InsEnum.RTS:
+      case Instr.RTS:
         _regPC = _popStack() + 1;
         break;
 
-      case InsEnum.SBC:
+      case Instr.SBC:
         int result = _regACC - value - (1 - _getCarryFlag());
 
         _setCarryFlag(Int8Util.isOverflow(result) == 1 ? 0 : 1);
@@ -422,63 +435,63 @@ class NesCpu {
         _setNegativeFlag(Int8Util.isNegative(result));
         break;
 
-      case InsEnum.SEC:
+      case Instr.SEC:
         _setCarryFlag(1);
         break;
 
-      case InsEnum.SED:
+      case Instr.SED:
         _setDecimalModeFlag(1);
         break;
 
-      case InsEnum.SEI:
+      case Instr.SEI:
         _setInterruptDisableFlag(1);
         break;
 
-      case InsEnum.STA:
+      case Instr.STA:
         _memory.write(addr, _regACC);
         break;
 
-      case InsEnum.STX:
+      case Instr.STX:
         _memory.write(addr, _regX);
         break;
 
-      case InsEnum.STY:
+      case Instr.STY:
         _memory.write(addr, _regY);
         break;
 
-      case InsEnum.TAX:
+      case Instr.TAX:
         _regX = _regACC;
 
         _setZeroFlag(Int8Util.isZero(_regX));
         _setNegativeFlag(Int8Util.isNegative(_regX));
         break;
 
-      case InsEnum.TAY:
+      case Instr.TAY:
         _regY = _regACC;
 
         _setZeroFlag(Int8Util.isZero(_regY));
         _setNegativeFlag(Int8Util.isNegative(_regY));
         break;
 
-      case InsEnum.TSX:
+      case Instr.TSX:
         _regX = _regSP;
 
         _setZeroFlag(Int8Util.isZero(_regX));
         _setNegativeFlag(Int8Util.isNegative(_regX));
         break;
 
-      case InsEnum.TXA:
+      case Instr.TXA:
         _regACC = _regX;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
         _setNegativeFlag(Int8Util.isNegative(_regACC));
         break;
 
-      case InsEnum.TXS:
+      case Instr.TXS:
         _regSP = _regX;
         break;
 
-      case InsEnum.TYA:
+      case Instr.TYA:
         _regACC = _regY;
 
         _setZeroFlag(Int8Util.isZero(_regACC));
@@ -486,7 +499,7 @@ class NesCpu {
         break;
 
       default:
-        throw ('cpu emulate: ${op.ins} is an unknown instruction.');
+        throw ('cpu emulate: ${op.instr} is an unknown instruction.');
     }
 
     _regPC += op.bytes + extraBytes;
@@ -538,28 +551,35 @@ class NesCpu {
     _regPS = Int8Util.setBitValue(_regPS, 7, value);
   }
 
+  // stack works top-down, see NESDoc page 12.
   _pushStack(int value) {
-    _memory.write(_regSP, value);
-    _regSP++;
-
-    _checkStackPoint();
+    _memory.write(0x100 & _regSP, value);
+    _regSP--;
   }
 
   int _popStack() {
-    int value = _memory.read(_regSP);
-    _regSP--;
-
-    _checkStackPoint();
+    int value = _memory.read(0x100 & _regSP);
+    _regSP++;
 
     return value;
   }
 
-  _checkStackPoint() {
-    int spMod = _regSP % NesCpuMemory.RAM_CHUNK_SIZE;
+  void logRegisterStatus() {
+    var encoder = new JsonEncoder.withIndent("  ");
 
-    // if over current stack range
-    if (spMod < 0xff || spMod >= 0x200) {
-      _regSP = (_regSP / 0x200).floor() * NesCpuMemory.RAM_CHUNK_SIZE + 0x100;
+    if (logger != null) {
+      String status = encoder.convert(
+        {
+          "ACC": Int8Util.toBinaryString(_regACC),
+          "PC ": Int8Util.toBinaryString(_regPC),
+          "SP ": Int8Util.toBinaryString(_regSP),
+          "PS ": Int8Util.toBinaryString(_regPS),
+          "X  ": Int8Util.toBinaryString(_regX),
+          "Y  ": Int8Util.toBinaryString(_regY),
+        },
+      );
+
+      logger.v('register status: ' + status);
     }
   }
 }

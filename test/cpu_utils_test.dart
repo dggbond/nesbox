@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flutter_nes/cpu_utils.dart' show Int8Util;
+import 'package:flutter_nes/cpu/cpu_utils.dart' show Int8Util;
 
 void main() {
   test('function isSameSign', () {

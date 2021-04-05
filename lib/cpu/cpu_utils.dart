@@ -1,4 +1,4 @@
-library flutter_nes;
+library cpu;
 
 /*
 * NOTE: ALL FUNCTIONS TREAT INT AS 8-bit !!!
@@ -42,5 +42,9 @@ class Int8Util {
 
   static int join(int a, int b) {
     return (a << 2 + b) & 0xff;
+  }
+
+  static String toBinaryString(int num) {
+    return '${(num & 0xff).toRadixString(2).padLeft(8, '0')}';
   }
 }
