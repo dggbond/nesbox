@@ -6,13 +6,13 @@ import 'package:path/path.dart' as path;
 import 'dart:io' show Platform, File;
 
 void main() {
-  test('nes emulator load nes file', () async {
-    final emulator = new NesEmulator();
-    String filepath = path.join(path.dirname(Platform.script.path), 'test/Megaman.nes');
-
-    emulator.loadRom(File(filepath).readAsBytesSync());
-    emulator.run();
-  });
+//   test('nes emulator load nes file', () async {
+//     final emulator = new NesEmulator();
+//     String filepath = path.join(path.dirname(Platform.script.path), 'test/Megaman.nes');
+//
+//     emulator.loadRom(File(filepath).readAsBytesSync());
+//     emulator.run();
+//   });
 
   test('nes emulator load test program', () {
     final emulator = new NesEmulator();
@@ -29,5 +29,10 @@ void main() {
       0x00, // BRK
     ]));
     emulator.run();
+
+    assert(emulator.cpu.inspectMemory(0x20) == 0x10);
+    assert(emulator.cpu.inspectMemory(0x21) == 0x12);
+    assert(emulator.cpu.getACC() == 0x11);
+    assert(emulator.cpu.getY() == 0x13);
   });
 }

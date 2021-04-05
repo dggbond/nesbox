@@ -21,8 +21,8 @@ class NesCpu {
 
   // execute one instruction
   emulate(Op op, Int8List nextBytes) {
-    int addr; // memory address will used in operator instruction.
-    int value; // the value in memory address of addr
+    int addr = 0; // memory address will used in operator instruction.
+    int value = 0; // the value in memory address of addr
     int extraCycles = 0;
     int extraBytes = 0;
 
@@ -97,6 +97,11 @@ class NesCpu {
 
       default:
         throw ('cpu emulate: ${op.addrMode} is an unknown addressing mode.');
+    }
+
+    // this means is addressing 16bit addr, so it takes one more cycle.
+    if (addr & 0xffff > 0xff) {
+      extraCycles++;
     }
 
     switch (op.ins) {
@@ -488,60 +493,45 @@ class NesCpu {
     return op.cycles + extraCycles;
   }
 
-  int getPC() {
-    return _regPC;
-  }
+  int inspectMemory(int addr) => _memory.read(addr);
 
-  int _getCarryFlag() {
-    return Int8Util.getBitValue(_regPS, 0);
-  }
+  int getPC() => _regPC;
+  int getSP() => _regSP;
+  int getPS() => _regPS;
+  int getACC() => _regACC;
+  int getX() => _regX;
+  int getY() => _regY;
+
+  int _getCarryFlag() => Int8Util.getBitValue(_regPS, 0);
+  int _getZeroFlag() => Int8Util.getBitValue(_regPS, 1);
+  int _getInterruptDisableFlag() => Int8Util.getBitValue(_regPS, 2);
+  int _getDecimalModeFlag() => Int8Util.getBitValue(_regPS, 3);
+  int _getBreakCommandFlag() => Int8Util.getBitValue(_regPS, 4);
+  int _getOverflowFlag() => Int8Util.getBitValue(_regPS, 6);
+  int _getNegativeFlag() => Int8Util.getBitValue(_regPS, 7);
 
   void _setCarryFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 0, value);
-  }
-
-  int _getZeroFlag() {
-    return Int8Util.getBitValue(_regPS, 1);
   }
 
   void _setZeroFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 1, value);
   }
 
-  int _getInterruptDisableFlag() {
-    return Int8Util.getBitValue(_regPS, 2);
-  }
-
   void _setInterruptDisableFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 2, value);
-  }
-
-  int _getDecimalModeFlag() {
-    return Int8Util.getBitValue(_regPS, 3);
   }
 
   void _setDecimalModeFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 3, value);
   }
 
-  int _getBreakCommandFlag() {
-    return Int8Util.getBitValue(_regPS, 4);
-  }
-
   void _setBreakCommandFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 4, value);
   }
 
-  int _getOverflowFlag() {
-    return Int8Util.getBitValue(_regPS, 6);
-  }
-
   void _setOverflowFlag(int value) {
     _regPS = Int8Util.setBitValue(_regPS, 6, value);
-  }
-
-  int _getNegativeFlag() {
-    return Int8Util.getBitValue(_regPS, 7);
   }
 
   void _setNegativeFlag(int value) {

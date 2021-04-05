@@ -9,6 +9,10 @@ class NesRom {
 
   // program counter
   int read(int pc) {
+    if (pc >= _data.length) {
+      return null;
+    }
+
     return _data[pc];
   }
 }
