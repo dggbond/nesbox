@@ -29,7 +29,7 @@ class NesEmulator {
 
   // start run the nes program
   run() {
-    _logger.i("start run");
+    _logger.i("start running the nes program.");
 
     cpu.logRegisterStatus();
     while (true) {

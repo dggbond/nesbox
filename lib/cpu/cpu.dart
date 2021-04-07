@@ -59,11 +59,21 @@ class NesCpu {
       case AddrMode.AbsoluteX:
         addr = Int8Util.join(nextBytes[1], nextBytes[0]) + _regX;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regX)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.AbsoluteY:
         addr = Int8Util.join(nextBytes[1], nextBytes[0]) + _regY;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regY)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.Indirect:
@@ -97,27 +107,24 @@ class NesCpu {
       case AddrMode.IndirectY:
         addr = Int8Util.join(_memory.read(nextBytes[0] + _regY + 1), _memory.read(nextBytes[0])) + _regY;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regY)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.IndirectIndexed:
         addr = Int8Util.join(_memory.read(nextBytes[0] + 1), _memory.read(nextBytes[0])) + _regY;
         value = _memory.read(addr);
         break;
-
-      default:
-        throw ("cpu emulate: ${op.addrMode} is an unknown addressing mode.");
-    }
-
-    // this means is addressing 16bit addr, so it takes one more cycle.
-    if (addr & 0xffff > 0xff) {
-      extraCycles++;
     }
 
     switch (op.instr) {
       case Instr.ADC:
         int result = value + _regACC + _getCarryFlag();
 
-        // if you don"t understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
+        // if you don't understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
         if (Int8Util.isSameSign(_regACC, value) && !Int8Util.isSameSign(_regACC, result)) {
           _setOverflowFlag(1);
         } else {
@@ -203,6 +210,9 @@ class NesCpu {
         break;
 
       case Instr.BRK:
+        // IRQ is ignored when interrupt disable flag is set.
+        if (_getInterruptDisableFlag() == 1) break;
+
         _pushStack(_regPC);
         _pushStack(_regPS);
 
@@ -415,8 +425,8 @@ class NesCpu {
         break;
 
       case Instr.RTI:
-        _regPS = _popStack();
         _regPC = _popStack();
+        _regPS = _popStack();
 
         _setInterruptDisableFlag(0);
         break;
@@ -575,6 +585,6 @@ class NesCpu {
       },
     );
 
-    logger.v("register status: " + status);
+    logger.v("cpu register status: " + status);
   }
 }

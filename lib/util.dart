@@ -14,6 +14,11 @@ String toBinary(int num) {
   return (num & 0xff).toRadixString(2).padLeft(8, "0");
 }
 
+// one page is 8-bit size;
+bool isPageCrossed(int addr1, int addr2) {
+  return addr1 & 0xff00 != addr2 & 0xff00;
+}
+
 class Int8Util {
   static bool isSameSign(int a, int b) {
     return Int8Util.isPositive(a) ^ Int8Util.isPositive(b) == 0;
