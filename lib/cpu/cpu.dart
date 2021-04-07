@@ -27,7 +27,7 @@ class NesCpu {
   int _regY = 0; // Index register
 
   // execute one instruction
-  emulate(Op op, Int8List nextBytes) {
+  emulate(Op op, Uint8List nextBytes) {
     int addr = 0; // memory address will used in operator instruction.
     int value = 0; // the value in memory address of addr
     int extraCycles = 0;
