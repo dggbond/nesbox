@@ -1,8 +1,23 @@
-library cpu;
+import "dart:convert";
 
-/*
-* NOTE: ALL FUNCTIONS TREAT INT AS 8-bit !!!
-*/
+String jsonStringify(Object object) {
+  var encoder = new JsonEncoder.withIndent("  ");
+
+  return encoder.convert(object);
+}
+
+String toHex(int num) {
+  return num.toRadixString(16).padLeft(2, "0");
+}
+
+String toBinary(int num) {
+  return (num & 0xff).toRadixString(2).padLeft(8, "0");
+}
+
+// one page is 8-bit size;
+bool isPageCrossed(int addr1, int addr2) {
+  return addr1 & 0xff00 != addr2 & 0xff00;
+}
 
 class Int8Util {
   static bool isSameSign(int a, int b) {
@@ -42,9 +57,5 @@ class Int8Util {
 
   static int join(int a, int b) {
     return (a << 2 + b) & 0xff;
-  }
-
-  static String toBinaryString(int num) {
-    return "${(num & 0xff).toRadixString(2).padLeft(8, "0")}";
   }
 }

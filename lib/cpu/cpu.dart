@@ -1,15 +1,12 @@
 library cpu;
 
-import "dart:convert";
 import "dart:typed_data";
 
-import "package:flutter/services.dart";
-import "package:logger/logger.dart";
-
 import "cpu_enum.dart";
-import "cpu_utils.dart" show Int8Util;
 
 import "package:flutter_nes/memory.dart";
+import "package:flutter_nes/logger.dart";
+import "package:flutter_nes/util.dart";
 
 // emualtor for 6502 CPU
 class NesCpu {
@@ -18,8 +15,7 @@ class NesCpu {
   });
 
   NesCpuMemory _memory = NesCpuMemory();
-
-  Logger logger;
+  NesLogger logger;
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
@@ -31,13 +27,13 @@ class NesCpu {
   int _regY = 0; // Index register
 
   // execute one instruction
-  emulate(Op op, Int8List nextBytes) {
+  emulate(Op op, Uint8List nextBytes) {
     int addr = 0; // memory address will used in operator instruction.
     int value = 0; // the value in memory address of addr
     int extraCycles = 0;
     int extraBytes = 0;
 
-    if (logger != null) logger.v(op.toJSON() + "\n" + nextBytes.toString());
+    logger.v(op.toJSON() + "\n" + nextBytes.toString());
 
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
@@ -63,11 +59,21 @@ class NesCpu {
       case AddrMode.AbsoluteX:
         addr = Int8Util.join(nextBytes[1], nextBytes[0]) + _regX;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regX)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.AbsoluteY:
         addr = Int8Util.join(nextBytes[1], nextBytes[0]) + _regY;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regY)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.Indirect:
@@ -101,27 +107,24 @@ class NesCpu {
       case AddrMode.IndirectY:
         addr = Int8Util.join(_memory.read(nextBytes[0] + _regY + 1), _memory.read(nextBytes[0])) + _regY;
         value = _memory.read(addr);
+
+        if (isPageCrossed(addr, addr - _regY)) {
+          extraCycles++;
+        }
+
         break;
 
       case AddrMode.IndirectIndexed:
         addr = Int8Util.join(_memory.read(nextBytes[0] + 1), _memory.read(nextBytes[0])) + _regY;
         value = _memory.read(addr);
         break;
-
-      default:
-        throw ("cpu emulate: ${op.addrMode} is an unknown addressing mode.");
-    }
-
-    // this means is addressing 16bit addr, so it takes one more cycle.
-    if (addr & 0xffff > 0xff) {
-      extraCycles++;
     }
 
     switch (op.instr) {
       case Instr.ADC:
         int result = value + _regACC + _getCarryFlag();
 
-        // if you don"t understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
+        // if you don't understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
         if (Int8Util.isSameSign(_regACC, value) && !Int8Util.isSameSign(_regACC, result)) {
           _setOverflowFlag(1);
         } else {
@@ -207,6 +210,9 @@ class NesCpu {
         break;
 
       case Instr.BRK:
+        // IRQ is ignored when interrupt disable flag is set.
+        if (_getInterruptDisableFlag() == 1) break;
+
         _pushStack(_regPC);
         _pushStack(_regPS);
 
@@ -419,7 +425,10 @@ class NesCpu {
         break;
 
       case Instr.RTI:
+        _regPC = _popStack();
         _regPS = _popStack();
+
+        _setInterruptDisableFlag(0);
         break;
 
       case Instr.RTS:
@@ -565,21 +574,17 @@ class NesCpu {
   }
 
   void logRegisterStatus() {
-    var encoder = new JsonEncoder.withIndent("  ");
+    String status = jsonStringify(
+      {
+        "ACC": toBinary(_regACC),
+        "PC ": toBinary(_regPC),
+        "SP ": toBinary(_regSP),
+        "PS ": toBinary(_regPS),
+        "X  ": toBinary(_regX),
+        "Y  ": toBinary(_regY),
+      },
+    );
 
-    if (logger != null) {
-      String status = encoder.convert(
-        {
-          "ACC": Int8Util.toBinaryString(_regACC),
-          "PC ": Int8Util.toBinaryString(_regPC),
-          "SP ": Int8Util.toBinaryString(_regSP),
-          "PS ": Int8Util.toBinaryString(_regPS),
-          "X  ": Int8Util.toBinaryString(_regX),
-          "Y  ": Int8Util.toBinaryString(_regY),
-        },
-      );
-
-      logger.v("register status: " + status);
-    }
+    logger.v("cpu register status: " + status);
   }
 }
