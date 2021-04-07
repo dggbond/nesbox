@@ -1,15 +1,12 @@
 library cpu;
 
-import "dart:convert";
 import "dart:typed_data";
 
-import "package:flutter/services.dart";
-import "package:logger/logger.dart";
-
 import "cpu_enum.dart";
-import "cpu_utils.dart" show Int8Util;
 
 import "package:flutter_nes/memory.dart";
+import "package:flutter_nes/logger.dart";
+import "package:flutter_nes/util.dart";
 
 // emualtor for 6502 CPU
 class NesCpu {
@@ -18,8 +15,7 @@ class NesCpu {
   });
 
   NesCpuMemory _memory = NesCpuMemory();
-
-  Logger logger;
+  NesLogger logger;
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
@@ -37,7 +33,7 @@ class NesCpu {
     int extraCycles = 0;
     int extraBytes = 0;
 
-    if (logger != null) logger.v(op.toJSON() + "\n" + nextBytes.toString());
+    logger.v(op.toJSON() + "\n" + nextBytes.toString());
 
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
@@ -420,6 +416,9 @@ class NesCpu {
 
       case Instr.RTI:
         _regPS = _popStack();
+        _regPC = _popStack();
+
+        _setInterruptDisableFlag(0);
         break;
 
       case Instr.RTS:
@@ -565,21 +564,17 @@ class NesCpu {
   }
 
   void logRegisterStatus() {
-    var encoder = new JsonEncoder.withIndent("  ");
+    String status = jsonStringify(
+      {
+        "ACC": toBinary(_regACC),
+        "PC ": toBinary(_regPC),
+        "SP ": toBinary(_regSP),
+        "PS ": toBinary(_regPS),
+        "X  ": toBinary(_regX),
+        "Y  ": toBinary(_regY),
+      },
+    );
 
-    if (logger != null) {
-      String status = encoder.convert(
-        {
-          "ACC": Int8Util.toBinaryString(_regACC),
-          "PC ": Int8Util.toBinaryString(_regPC),
-          "SP ": Int8Util.toBinaryString(_regSP),
-          "PS ": Int8Util.toBinaryString(_regPS),
-          "X  ": Int8Util.toBinaryString(_regX),
-          "Y  ": Int8Util.toBinaryString(_regY),
-        },
-      );
-
-      logger.v("register status: " + status);
-    }
+    logger.v("register status: " + status);
   }
 }

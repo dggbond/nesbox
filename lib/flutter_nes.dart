@@ -2,35 +2,25 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-import "package:logger/logger.dart";
-
 import "package:flutter_nes/cpu/cpu.dart" show NesCpu;
 import "package:flutter_nes/cpu/cpu_enum.dart";
 import "package:flutter_nes/rom.dart" show NesRom;
+import "package:flutter_nes/util.dart";
 import "package:flutter_nes/mapper.dart" show NesMapper;
+import "package:flutter_nes/logger.dart" show NesLogger;
 
 class NesEmulator {
   NesEmulator({
     bool debugMode = false,
   }) {
-    if (debugMode) {
-      this._logger = Logger(
-        printer: PrettyPrinter(
-          lineLength: 120,
-          colors: true,
-          printEmojis: true,
-          printTime: true,
-        ),
-      );
-    }
-
+    this._logger = NesLogger(debugMode);
     this.cpu = NesCpu(logger: this._logger);
   }
 
   NesCpu cpu;
   NesRom rom;
 
-  Logger _logger;
+  NesLogger _logger;
 
   // load nes rom data
   loadRom(Uint8List data) async {
@@ -39,7 +29,7 @@ class NesEmulator {
 
   // start run the nes program
   run() {
-    if (_logger != null) _logger.i("start run");
+    _logger.i("start run");
 
     cpu.logRegisterStatus();
     while (true) {
@@ -53,7 +43,7 @@ class NesEmulator {
 
       Op op = findOp(opcode);
       if (op == null) {
-        throw ("rom address 0x${pc.toRadixString(16).padLeft(2, "0")} is unknown instruction.");
+        throw ("${toHex(opcode)} is unknown instruction at rom address 0x${toHex(pc)}");
       }
 
       cpu.emulate(op, _getNextBytes(op, pc));
