@@ -9,7 +9,7 @@ void main() {
     // final emulator = new NesEmulator();
     // String filepath = path.join(path.dirname(Platform.script.path), "test/Megaman.nes");
 
-    // emulator.loadRom(File(filepath).readAsBytesSync());
+    // emulator.loadROM(File(filepath).readAsBytesSync());
     // emulator.run();
   });
 }

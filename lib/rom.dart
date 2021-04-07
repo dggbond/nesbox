@@ -2,8 +2,8 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-class NesRom {
-  NesRom(this._data);
+class NesROM {
+  NesROM(this._data);
 
   Uint8List _data;
 

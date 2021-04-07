@@ -3,14 +3,15 @@ library cpu;
 import "dart:typed_data";
 
 import "cpu_enum.dart";
+export "cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
 import "package:flutter_nes/logger.dart";
 import "package:flutter_nes/util.dart";
 
 // emualtor for 6502 CPU
-class NesCpu {
-  NesCpu({
+class NesCPU {
+  NesCPU({
     this.logger,
   });
 

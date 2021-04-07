@@ -2,11 +2,9 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-import "package:flutter_nes/cpu/cpu.dart" show NesCpu;
-import "package:flutter_nes/cpu/cpu_enum.dart";
-import "package:flutter_nes/rom.dart" show NesRom;
+import "package:flutter_nes/cpu/cpu.dart";
+import "package:flutter_nes/rom.dart" show NesROM;
 import "package:flutter_nes/util.dart";
-import "package:flutter_nes/mapper.dart" show NesMapper;
 import "package:flutter_nes/logger.dart" show NesLogger;
 
 class NesEmulator {
@@ -14,17 +12,17 @@ class NesEmulator {
     bool debugMode = false,
   }) {
     this._logger = NesLogger(debugMode);
-    this.cpu = NesCpu(logger: this._logger);
+    this.cpu = NesCPU(logger: this._logger);
   }
 
-  NesCpu cpu;
-  NesRom rom;
+  NesCPU cpu;
+  NesROM rom;
 
   NesLogger _logger;
 
   // load nes rom data
-  loadRom(Uint8List data) async {
-    rom = NesRom(data);
+  loadROM(Uint8List data) async {
+    rom = NesROM(data);
   }
 
   // start run the nes program
