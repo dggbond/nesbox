@@ -1,12 +1,23 @@
 # flutter_nes
-A nes emulator
+A nes emulator written in dart. You can use it in your flutter app.
+
+## Getting Started
+
+
+## TODO
+- [x] CPU
+- [x] PPU
+- [x] APU
+- [x] ROM file parser
+- [x] Controller
+- [x] Render
 
 ## Features
-- [x] load nes game
-- [x] nes game render
-- [x] operator control
-- [x] voice control
-- [x] multiple players from WIFI or bluetooth
+- [x] Basic nes emulator
+- [x] Game speed control (2x, 4x, 8x ...)
+- [x] Save/Read game progress
+- [x] Video record
+- [x] Multiple players from WIFI or bluetooth
 
 ## References
 nes dev docs:
@@ -28,3 +39,6 @@ nesfiles:
 - [fogleman/nes](https://github.com/fogleman/nes): written in go.
 - [bfirsh/jsnes](https://github.com/bfirsh/jsnes): written in javascript.
 - [yizhang82/neschan](https://github.com/yizhang82/neschan): written in c++;
+
+## License
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details
