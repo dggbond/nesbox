@@ -8,11 +8,9 @@ import "package:flutter_nes/util.dart";
 import "package:flutter_nes/logger.dart" show NesLogger;
 
 class NesEmulator {
-  NesEmulator({
-    bool debugMode = false,
-  }) {
-    this._logger = NesLogger(debugMode);
-    this.cpu = NesCPU(logger: this._logger);
+  NesEmulator() {
+    this._logger = NesLogger();
+    this.cpu = NesCPU();
   }
 
   NesCPU cpu;
@@ -27,25 +25,23 @@ class NesEmulator {
 
   // start run the nes program
   run() {
-    _logger.i("start running the nes program.");
+    _logger.info("start running the nes program.");
 
-    cpu.logRegisterStatus();
     while (true) {
       int pc = cpu.getPC();
       int opcode = rom.read(pc);
 
       if (opcode == null) {
-        _logger.w("can't read more opcode. process exit.");
+        _logger.info("can't read more opcode. process exit.");
         return;
       }
 
       Op op = findOp(opcode);
       if (op == null) {
-        throw ("${toHex(opcode)} is unknown instruction at rom address 0x${toHex(pc)}");
+        throw ("${toHex(opcode)} is unknown instruction at rom address \$${toHex(pc)}");
       }
 
       cpu.emulate(op, _getNextBytes(op, pc));
-      cpu.logRegisterStatus();
     }
   }
 

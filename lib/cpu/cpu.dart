@@ -6,17 +6,13 @@ import "cpu_enum.dart";
 export "cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
-import "package:flutter_nes/logger.dart";
 import "package:flutter_nes/util.dart";
 
 // emualtor for 6502 CPU
 class NesCPU {
-  NesCPU({
-    this.logger,
-  });
+  NesCPU();
 
   NesCpuMemory _memory = NesCpuMemory();
-  NesLogger logger;
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
@@ -33,8 +29,6 @@ class NesCPU {
     int value = 0; // the value in memory address of addr
     int extraCycles = 0;
     int extraBytes = 0;
-
-    logger.v(op.toJSON() + "\n" + nextBytes.toString());
 
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
@@ -572,20 +566,5 @@ class NesCPU {
     _regSP++;
 
     return value;
-  }
-
-  void logRegisterStatus() {
-    String status = jsonStringify(
-      {
-        "ACC": toBinary(_regACC),
-        "PC ": toBinary(_regPC),
-        "SP ": toBinary(_regSP),
-        "PS ": toBinary(_regPS),
-        "X  ": toBinary(_regX),
-        "Y  ": toBinary(_regY),
-      },
-    );
-
-    logger.v("cpu register status: " + status);
   }
 }
