@@ -2,8 +2,8 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-class NesCpuMemory {
-  NesCpuMemory();
+class NesCPUMemory {
+  NesCPUMemory();
 
   static const int SIZE = 0x10000;
   static const int RAM_SIZE = 0x2000;
@@ -73,5 +73,19 @@ class NesCpuMemory {
     }
 
     _mem[address] = value;
+  }
+}
+
+class NesPPUMemory {
+  static const int SIZE = 0x10000;
+
+  final Int8List _mem = Int8List(SIZE); // 64kb memory;
+
+  int read(int address) {
+    return _mem[address];
+  }
+
+  void write(int address, int value) {
+    _mem[address] = value & 0xff;
   }
 }

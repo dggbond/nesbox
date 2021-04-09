@@ -5,12 +5,11 @@ author: mao.zheng
 homepage: https://github.com/mao0613/flutter_nes
 
 environment:
-  sdk: ">=2.1.0 <3.0.0"
+  sdk: ">=2.6.0 <3.0.0"
 
 dependencies:
   flutter:
     sdk: flutter
-  logger: ^1.0.0
 
 dev_dependencies:
   flutter_test:
