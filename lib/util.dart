@@ -11,7 +11,12 @@ extension Stringify on int {
 }
 
 class Int8 {
-  Int8([int this._num = 0]);
+  Int8([this._num = 0]);
+
+  // check an int is 8-bit or not;
+  static isValid(int target) {
+    return target >> 8 == 0;
+  }
 
   int _num = 0;
 

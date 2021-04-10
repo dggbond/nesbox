@@ -21,7 +21,6 @@ class NesEmulator {
   // load nes rom data
   loadROM(Uint8List data) async {
     rom = NesROM(data);
-    print("rom version ${rom.isNES2 ? "2" : "1"}");
   }
 
   // start run the nes program
