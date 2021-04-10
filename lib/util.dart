@@ -1,17 +1,9 @@
 import "dart:convert";
 
-extension Stringify on int {
-  toHex() {
-    return "\$" + this.toRadixString(16).padLeft(4, "0");
-  }
-
-  int getBit(int n) {
-    return (this >> n) & 1;
-  }
-}
+import 'dart:typed_data';
 
 class Int8 {
-  Int8([this._num = 0]);
+  Int8([int this._num = 0]);
 
   int _num = 0;
 
@@ -95,6 +87,16 @@ class Int8 {
 
   int get sign {
     return _num >> 7 & 1;
+  }
+}
+
+extension Stringify on int {
+  toHex() {
+    return "\$" + this.toRadixString(16).padLeft(4, "0");
+  }
+
+  int getBit(int n) {
+    return (this >> n) & 1;
   }
 }
 

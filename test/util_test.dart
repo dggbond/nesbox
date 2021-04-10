@@ -1,5 +1,5 @@
 import "package:flutter_test/flutter_test.dart";
-import "package:flutter_nes/util.dart";
+import 'package:flutter_nes/util.dart';
 
 void main() {
   test("function isSameSign", () {

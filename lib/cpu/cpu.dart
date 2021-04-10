@@ -6,7 +6,7 @@ import "cpu_enum.dart";
 export "cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
-import "package:flutter_nes/util.dart";
+import 'package:flutter_nes/util.dart';
 
 // emualtor for 6502 CPU
 class NesCPU {
@@ -119,7 +119,7 @@ class NesCPU {
       case Instr.ADC:
         Int8 result = M + _regACC + Int8(_getCarryFlag());
 
-        // if you don"t understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
+        // if you don't understand what is overflow, see: http://teaching.idallen.com/dat2343/10f/notes/040_overflow.txt
         if (_regACC.sign == M.sign && _regACC.sign != result.sign) {
           _setOverflowFlag(1);
         } else {
@@ -563,7 +563,7 @@ class NesCPU {
 
   int _popStack() {
     int value = _memory.read(0x100 & _regSP.value);
-    _regSP += Int8(1);
+    _regSP -= Int8(1);
 
     return value;
   }
