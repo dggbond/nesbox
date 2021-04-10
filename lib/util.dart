@@ -115,6 +115,6 @@ bool isPageCrossed(int addr1, int addr2) {
 }
 
 // bytes can be Uint8List | List<int>
-int get16Bit(dynamic bytes) {
+int to16Bit(dynamic bytes) {
   return (bytes[1] << 2) | bytes[0] & 0xffff;
 }

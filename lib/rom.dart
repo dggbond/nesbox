@@ -60,7 +60,6 @@ class NesROM {
   // TV system (0: NTSC; 1: PAL)
   int tvSystem;
 
-  // program counter
   int readProgram(int pc) {
     int pcStartAt = trainerFlag == 1 ? HEADER_SIZE + TRAINER_SIZE : HEADER_SIZE;
 
@@ -115,5 +114,7 @@ class NesROM {
   }
 
   // @TODO: parse the NES 2.0 format header
-  _parseNES2() {}
+  _parseNES2() {
+    print("this is a nes 2.0 file");
+  }
 }

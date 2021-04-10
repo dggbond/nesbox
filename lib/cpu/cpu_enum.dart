@@ -2,31 +2,31 @@ library cpu;
 
 import "dart:convert";
 
-// http://nesdev.com/NESDoc.pdf, see Appendix E Addressing Mode
+// see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
 enum AddrMode {
+  // the comment is the abbr.
   // at page 39
-  ZeroPage,
-  ZeroPageX,
-  ZeroPageY,
+  ZeroPage, // d
+  ZeroPageX, // d,x
+  ZeroPageY, // d,y
 
   // at page 40
-  Absolute,
+  Absolute, // a
 
   // at page 41
-  AbsoluteX,
-  AbsoluteY,
-  Indirect,
+  AbsoluteX, // a,x
+  AbsoluteY, // a,y
+  Indirect, // (a)
 
   // at page 42
-  Implied,
-  Accumulator,
-  Immediate,
+  Implied, // no short cut
+  Accumulator, // A
+  Immediate, // #v or #i
 
   // at page 43
-  Relative,
-  IndirectX,
-  IndirectY,
-  IndirectIndexed,
+  Relative, // label
+  IndexedIndirect, // (d,x)
+  IndirectIndexed, // (d),y
 }
 
 // instruction enum
@@ -87,6 +87,27 @@ enum Instr {
   TXA, // Transfer X to Accumulator
   TXS, // Transfer X to Stack Pointer
   TYA, // Transfer Y to Accumulator
+
+  // unofficial Op, see: https://wiki.nesdev.com/w/index.php/Programming_with_unofficial_opcodes
+  // Combined operations
+  ALR, // call 'ASR' too.
+  ANC,
+  ARR,
+  AXS,
+  LAX,
+  SAX,
+
+  // RMW(read-modify-write) instructions
+  DCP,
+  ISC,
+  RLA,
+  RRA,
+  SLO,
+  SRE,
+
+  // NOPs
+  SKB,
+  IGN,
 }
 
 class Op {
@@ -117,8 +138,8 @@ const Map<int, Op> _OP_MAP = {
   0x6d: Op(Instr.ADC, AddrMode.Absolute, 3, 4),
   0x7d: Op(Instr.ADC, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x79: Op(Instr.ADC, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0x61: Op(Instr.ADC, AddrMode.IndirectX, 2, 6),
-  0x71: Op(Instr.ADC, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0x61: Op(Instr.ADC, AddrMode.IndexedIndirect, 2, 6),
+  0x71: Op(Instr.ADC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x29: Op(Instr.AND, AddrMode.Immediate, 2, 2),
   0x25: Op(Instr.AND, AddrMode.ZeroPage, 2, 3),
@@ -126,8 +147,8 @@ const Map<int, Op> _OP_MAP = {
   0x2d: Op(Instr.AND, AddrMode.Absolute, 3, 4),
   0x3d: Op(Instr.AND, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x39: Op(Instr.AND, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0x21: Op(Instr.AND, AddrMode.IndirectX, 2, 6),
-  0x31: Op(Instr.AND, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0x21: Op(Instr.AND, AddrMode.IndexedIndirect, 2, 6),
+  0x31: Op(Instr.AND, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x0a: Op(Instr.ASL, AddrMode.Immediate, 1, 2),
   0x06: Op(Instr.ASL, AddrMode.ZeroPage, 2, 5),
@@ -170,8 +191,8 @@ const Map<int, Op> _OP_MAP = {
   0xcd: Op(Instr.CMP, AddrMode.Absolute, 3, 4),
   0xdd: Op(Instr.CMP, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xd9: Op(Instr.CMP, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0xc1: Op(Instr.CMP, AddrMode.IndirectX, 2, 6),
-  0xd1: Op(Instr.CMP, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0xc1: Op(Instr.CMP, AddrMode.IndexedIndirect, 2, 6),
+  0xd1: Op(Instr.CMP, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xe0: Op(Instr.CPX, AddrMode.Immediate, 2, 2),
   0xe4: Op(Instr.CPX, AddrMode.ZeroPage, 2, 3),
@@ -196,8 +217,8 @@ const Map<int, Op> _OP_MAP = {
   0x4d: Op(Instr.EOR, AddrMode.Absolute, 3, 4),
   0x5d: Op(Instr.EOR, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x59: Op(Instr.EOR, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0x41: Op(Instr.EOR, AddrMode.IndirectX, 2, 6),
-  0x51: Op(Instr.EOR, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0x41: Op(Instr.EOR, AddrMode.IndexedIndirect, 2, 6),
+  0x51: Op(Instr.EOR, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xe6: Op(Instr.INC, AddrMode.ZeroPage, 2, 5),
   0xf6: Op(Instr.INC, AddrMode.ZeroPageX, 2, 6),
@@ -219,8 +240,8 @@ const Map<int, Op> _OP_MAP = {
   0xad: Op(Instr.LDA, AddrMode.Absolute, 3, 4),
   0xbd: Op(Instr.LDA, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xb9: Op(Instr.LDA, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0xa1: Op(Instr.LDA, AddrMode.IndirectX, 2, 6),
-  0xb1: Op(Instr.LDA, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0xa1: Op(Instr.LDA, AddrMode.IndexedIndirect, 2, 6),
+  0xb1: Op(Instr.LDA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xa2: Op(Instr.LDX, AddrMode.Immediate, 2, 2),
   0xa6: Op(Instr.LDX, AddrMode.ZeroPage, 2, 3),
@@ -240,7 +261,13 @@ const Map<int, Op> _OP_MAP = {
   0x4e: Op(Instr.LSR, AddrMode.Absolute, 3, 6),
   0x5e: Op(Instr.LSR, AddrMode.AbsoluteX, 3, 7),
 
+  0x1a: Op(Instr.NOP, AddrMode.Implied, 1, 2),
+  0x3a: Op(Instr.NOP, AddrMode.Implied, 1, 2),
+  0x5a: Op(Instr.NOP, AddrMode.Implied, 1, 2),
+  0x7a: Op(Instr.NOP, AddrMode.Implied, 1, 2),
+  0xda: Op(Instr.NOP, AddrMode.Implied, 1, 2),
   0xea: Op(Instr.NOP, AddrMode.Implied, 1, 2),
+  0xfa: Op(Instr.NOP, AddrMode.Implied, 1, 2),
 
   0x09: Op(Instr.ORA, AddrMode.Immediate, 2, 2),
   0x05: Op(Instr.ORA, AddrMode.ZeroPage, 2, 3),
@@ -248,8 +275,8 @@ const Map<int, Op> _OP_MAP = {
   0x0d: Op(Instr.ORA, AddrMode.Absolute, 3, 4),
   0x1d: Op(Instr.ORA, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x19: Op(Instr.ORA, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0x01: Op(Instr.ORA, AddrMode.IndirectX, 2, 6),
-  0x11: Op(Instr.ORA, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0x01: Op(Instr.ORA, AddrMode.IndexedIndirect, 2, 6),
+  0x11: Op(Instr.ORA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x48: Op(Instr.PHA, AddrMode.Implied, 1, 3),
 
@@ -281,8 +308,8 @@ const Map<int, Op> _OP_MAP = {
   0xed: Op(Instr.SBC, AddrMode.Absolute, 3, 4),
   0xfd: Op(Instr.SBC, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xf9: Op(Instr.SBC, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
-  0xe1: Op(Instr.SBC, AddrMode.IndirectX, 2, 6),
-  0xf1: Op(Instr.SBC, AddrMode.IndirectY, 2, 5), // cycles +1 if page crossed
+  0xe1: Op(Instr.SBC, AddrMode.IndexedIndirect, 2, 6),
+  0xf1: Op(Instr.SBC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x38: Op(Instr.SEC, AddrMode.Implied, 1, 2),
 
@@ -295,8 +322,8 @@ const Map<int, Op> _OP_MAP = {
   0x8d: Op(Instr.STA, AddrMode.Absolute, 3, 4),
   0x9d: Op(Instr.STA, AddrMode.AbsoluteX, 3, 5),
   0x99: Op(Instr.STA, AddrMode.AbsoluteY, 3, 5),
-  0x81: Op(Instr.STA, AddrMode.IndirectX, 2, 6),
-  0x91: Op(Instr.STA, AddrMode.IndirectY, 2, 6),
+  0x81: Op(Instr.STA, AddrMode.IndexedIndirect, 2, 6),
+  0x91: Op(Instr.STA, AddrMode.IndirectIndexed, 2, 6),
 
   0x86: Op(Instr.STX, AddrMode.ZeroPage, 2, 3),
   0x96: Op(Instr.STX, AddrMode.ZeroPageY, 2, 4),
@@ -317,6 +344,91 @@ const Map<int, Op> _OP_MAP = {
   0x9a: Op(Instr.TXS, AddrMode.Implied, 1, 2),
 
   0x98: Op(Instr.TYA, AddrMode.Implied, 1, 2),
+
+  0x4b: Op(Instr.ALR, AddrMode.Immediate, 2, 2),
+
+  0x0b: Op(Instr.ANC, AddrMode.Immediate, 2, 2),
+  0x2b: Op(Instr.ANC, AddrMode.Immediate, 2, 2),
+
+  0x6b: Op(Instr.ARR, AddrMode.Immediate, 2, 2),
+
+  0xcb: Op(Instr.AXS, AddrMode.Immediate, 2, 2),
+
+  0xa7: Op(Instr.LAX, AddrMode.ZeroPage, 2, 3),
+  0xb7: Op(Instr.LAX, AddrMode.ZeroPageY, 2, 4),
+  0xaf: Op(Instr.LAX, AddrMode.Absolute, 3, 4),
+  0xbf: Op(Instr.LAX, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
+  0xa3: Op(Instr.LAX, AddrMode.IndexedIndirect, 2, 6),
+  0xb3: Op(Instr.LAX, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+
+  0x87: Op(Instr.SAX, AddrMode.ZeroPage, 2, 3),
+  0x97: Op(Instr.SAX, AddrMode.ZeroPageY, 2, 4),
+  0x8f: Op(Instr.SAX, AddrMode.Absolute, 3, 4),
+  0x83: Op(Instr.SAX, AddrMode.IndexedIndirect, 2, 6), // cycles +1 if page crossed
+
+  0xc7: Op(Instr.DCP, AddrMode.ZeroPage, 2, 5),
+  0xd7: Op(Instr.DCP, AddrMode.ZeroPageX, 2, 6),
+  0xcf: Op(Instr.DCP, AddrMode.Absolute, 3, 6),
+  0xdf: Op(Instr.DCP, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0xdb: Op(Instr.DCP, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0xc3: Op(Instr.DCP, AddrMode.IndexedIndirect, 2, 8),
+  0xd3: Op(Instr.DCP, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0xe7: Op(Instr.ISC, AddrMode.ZeroPage, 2, 5),
+  0xf7: Op(Instr.ISC, AddrMode.ZeroPageX, 2, 6),
+  0xef: Op(Instr.ISC, AddrMode.Absolute, 3, 6),
+  0xff: Op(Instr.ISC, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0xfb: Op(Instr.ISC, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0xe3: Op(Instr.ISC, AddrMode.IndexedIndirect, 2, 8),
+  0xf3: Op(Instr.ISC, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0x27: Op(Instr.RLA, AddrMode.ZeroPage, 2, 5),
+  0x37: Op(Instr.RLA, AddrMode.ZeroPageX, 2, 6),
+  0x2f: Op(Instr.RLA, AddrMode.Absolute, 3, 6),
+  0x3f: Op(Instr.RLA, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0x3b: Op(Instr.RLA, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0x23: Op(Instr.RLA, AddrMode.IndexedIndirect, 2, 8),
+  0x33: Op(Instr.RLA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0x67: Op(Instr.RRA, AddrMode.ZeroPage, 2, 5),
+  0x77: Op(Instr.RRA, AddrMode.ZeroPageX, 2, 6),
+  0x6f: Op(Instr.RRA, AddrMode.Absolute, 3, 6),
+  0x7f: Op(Instr.RRA, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0x7b: Op(Instr.RRA, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0x63: Op(Instr.RRA, AddrMode.IndexedIndirect, 2, 8),
+  0x73: Op(Instr.RRA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0x07: Op(Instr.SLO, AddrMode.ZeroPage, 2, 5),
+  0x17: Op(Instr.SLO, AddrMode.ZeroPageX, 2, 6),
+  0x0f: Op(Instr.SLO, AddrMode.Absolute, 3, 6),
+  0x1f: Op(Instr.SLO, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0x1b: Op(Instr.SLO, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0x03: Op(Instr.SLO, AddrMode.IndexedIndirect, 2, 8),
+  0x13: Op(Instr.SLO, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0x47: Op(Instr.SRE, AddrMode.ZeroPage, 2, 5),
+  0x57: Op(Instr.SRE, AddrMode.ZeroPageX, 2, 6),
+  0x4f: Op(Instr.SRE, AddrMode.Absolute, 3, 6),
+  0x5f: Op(Instr.SRE, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
+  0x5b: Op(Instr.SRE, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
+  0x43: Op(Instr.SRE, AddrMode.IndexedIndirect, 2, 8),
+  0x53: Op(Instr.SRE, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+
+  0x80: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
+  0x82: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
+  0x89: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
+  0xc2: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
+  0xe2: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
+
+  0x0c: Op(Instr.IGN, AddrMode.Absolute, 3, 4),
+  0x1c: Op(Instr.IGN, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
+  0x3c: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
+  0x5c: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
+  0x7c: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
+  0xdc: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
+  0xfc: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
+  0x04: Op(Instr.IGN, AddrMode.ZeroPage, 2, 3),
+  0x14: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
 };
 
 Op findOp(int opcode) {
