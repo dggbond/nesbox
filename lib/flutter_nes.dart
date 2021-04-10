@@ -4,7 +4,7 @@ import "dart:typed_data";
 
 import "package:flutter_nes/cpu/cpu.dart";
 import "package:flutter_nes/rom.dart" show NesROM;
-import 'package:flutter_nes/util.dart';
+import "package:flutter_nes/util.dart";
 import "package:flutter_nes/logger.dart" show NesLogger;
 
 class NesEmulator {
@@ -41,11 +41,17 @@ class NesEmulator {
         throw ("${opcode.toHex()} is unknown instruction at rom address ${pc.toHex()}");
       }
 
+      _logger.info("cpu is running ${op.instr}");
       cpu.emulate(op, _getNextBytes(op, pc));
+
+      // @TODO: temporary code, to remove it.
+      if (op.instr == Instr.BRK) {
+        return;
+      }
     }
   }
 
-  // get bytes next to a instruction. so that cpu not need to read rom.
+  // get bytes next to an instruction. so that cpu not need to read rom.
   Uint8List _getNextBytes(Op op, int pc) {
     final Uint8List nextBytes = Uint8List(op.bytes - 1);
 
