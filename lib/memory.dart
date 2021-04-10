@@ -2,8 +2,35 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-class NesCPUMemory {
-  NesCPUMemory();
+import 'package:flutter_nes/util.dart';
+
+class Memory {
+  Memory(int size) : _mem = Int8List(size);
+
+  final Int8List _mem;
+
+  int read(int address) {
+    if (address >= _mem.length) {
+      throw ("addressing 0x${address.toRadixString(16).padLeft(4, "0")} failed. this address is overflow memory size.");
+    }
+
+    return _mem.elementAt(address);
+  }
+
+  void _mirror(int address, int chunkSize, List<int> range, int value) {
+    while (_in(address += chunkSize, range)) {
+      _mem[address] = value;
+    }
+  }
+
+  // detect an address is in a range or not;
+  bool _in(int address, List<int> range) {
+    return address >= range[0] && address < range[1];
+  }
+}
+
+class NesCPUMemory extends Memory {
+  NesCPUMemory() : super(SIZE);
 
   static const int SIZE = 0x10000;
 
@@ -28,41 +55,27 @@ class NesCPUMemory {
   static const List<int> LOWER_PRG_ROM_RANGE = [0x8000, 0xc000];
   static const List<int> UPPER_PRG_ROM_RANGE = [0xc000, 0x10000];
 
-  final Int8List _mem = Int8List(SIZE); // 64kb memory;
-
-  int read(int address) {
-    if (address >= SIZE) {
-      throw ("addressing 0x${address.toRadixString(16).padLeft(4, "0")} failed. this address is overflow memory size.");
+  void write(int address, int value) {
+    if (!Int8.isValid(value)) {
+      throw ("trying to write a non-8bit value to memory.");
     }
 
-    return _mem.elementAt(address);
-  }
-
-  void write(int address, int value) {
-    if (value >= SIZE) {
+    if (address >= SIZE) {
       throw ("writing memory failed. this address is overflow memory size.");
     }
 
-    if (_in(address, RAM_MIRRORS_RANGE)) {
-      throw ("write memory failed. trying to write the RAM mirroring memeory.");
-    }
-
-    if (_in(address, IO_REGS_1_MIRRORS_RANGE)) {
-      throw ("write memory failed. trying to write the I/O Registers mirroring memeory.");
+    if (_in(address, RAM_MIRRORS_RANGE) || _in(address, IO_REGS_1_MIRRORS_RANGE)) {
+      throw ("write memory failed. trying to write the mirrors memeory.");
     }
 
     if (_in(address, ZERO_PAGE_RANGE) || _in(address, STACK_RANGE) || _in(address, RAM_RANGE)) {
       _mem[address] = value;
-      while (_in(address += 0x0800, RAM_MIRRORS_RANGE)) {
-        _mem[address] = value;
-      }
+      _mirror(address, 0x0800, RAM_MIRRORS_RANGE, value);
     }
 
     if (_in(address, IO_REGS_1_RANGE)) {
       _mem[address] = value;
-      while (_in(address += 0x0008, IO_REGS_1_MIRRORS_RANGE)) {
-        _mem[address] = value;
-      }
+      _mirror(address, 0x0008, IO_REGS_1_MIRRORS_RANGE, value);
     }
 
     if (_in(address, IO_REGS_2_RANGE) ||
@@ -73,14 +86,11 @@ class NesCPUMemory {
       _mem[address] = value;
     }
   }
-
-  // detect an address is in a range or not;
-  bool _in(int address, List<int> range) {
-    return address >= range[0] && address < range[1];
-  }
 }
 
-class NesPPUMemory {
+class NesPPUMemory extends Memory {
+  NesPPUMemory() : super(SIZE);
+
   static const int SIZE = 0x10000;
 
   // Pattern Tables RANGES
@@ -106,13 +116,39 @@ class NesPPUMemory {
 
   static const List<int> MIRRORS_RANGE = [0x4000, 0x10000]; // mirroring $0000-$3fff
 
-  final Int8List _mem = Int8List(SIZE); // 64kb memory;
-
-  int read(int address) {
-    return _mem[address];
-  }
-
   void write(int address, int value) {
-    _mem[address] = value & 0xff;
+    if (!Int8.isValid(value)) {
+      throw ("trying to write a non-8bit value to memory.");
+    }
+
+    if (value >= SIZE) {
+      throw ("writing memory failed. this address is overflow memory size.");
+    }
+
+    if (_in(address, NAME_TABLES_MIRRORS_RANGE) ||
+        _in(address, PALETTES_MIRRORS_RANGE) ||
+        _in(address, MIRRORS_RANGE)) {
+      throw ("write memory failed. trying to write the mirrors memeory.");
+    }
+
+    if (_in(address, PATTERN_TABLE_0_RANGE) || _in(address, PATTERN_TABLE_1_RANGE)) {
+      _mem[address] = value;
+    }
+
+    if (_in(address, [0x2000, 0x2eff])) {
+      _mem[address] = value;
+      _mirror(address, 0x0eff, NAME_TABLES_MIRRORS_RANGE, value);
+    }
+
+    if (_in(address, [0x2eff, 0x3000])) {
+      _mem[address] = value;
+    }
+
+    if (_in(address, IMAGE_PALETTES_RANGE) || _in(address, SPRITE_PALETTES_RANGE)) {
+      _mem[address] = value;
+      _mirror(address, 0x001f, PALETTES_MIRRORS_RANGE, value);
+    }
+
+    _mirror(address, 0x4000, [0x4000, SIZE], value);
   }
 }
