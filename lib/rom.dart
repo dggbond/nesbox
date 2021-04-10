@@ -14,9 +14,9 @@ class NesROM {
     }
   }
 
-  static int headerSize = 0x0f; // 16 bytes
-  static int trainerSize = 0x200; // 512 bytes
-  static int prgRomBankSize = 0x4000; // 16 kb
+  static const int HEADER_SIZE = 0x0f; // 16 bytes
+  static const int TRAINER_SIZE = 0x200; // 512 bytes
+  static const int PRG_ROM_BANK_SIZE = 0x4000; // 16 kb
 
   Uint8List _rom; // PRG-ROM(Program ROM), all the program code is here.
 
@@ -62,9 +62,9 @@ class NesROM {
 
   // program counter
   int readProgram(int pc) {
-    int pcStartAt = trainerFlag == 1 ? headerSize + trainerSize : headerSize;
+    int pcStartAt = trainerFlag == 1 ? HEADER_SIZE + TRAINER_SIZE : HEADER_SIZE;
 
-    if (pc > prgROMSize * prgRomBankSize) {
+    if (pc > prgROMSize * PRG_ROM_BANK_SIZE) {
       throw ("read program failed. pc is overflow PRG-ROM area.");
     }
 

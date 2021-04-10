@@ -11,7 +11,7 @@ extension Stringify on int {
 }
 
 class Int8 {
-  Int8([int this._num = 0]);
+  Int8([this._num = 0]);
 
   int _num = 0;
 

@@ -563,7 +563,7 @@ class NesCPU {
 
   int _popStack() {
     int value = _memory.read(0x100 & _regSP.value);
-    _regSP -= Int8(1);
+    _regSP += Int8(1);
 
     return value;
   }
