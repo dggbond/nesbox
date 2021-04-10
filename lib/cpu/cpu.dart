@@ -684,7 +684,7 @@ class NesCPU {
   }
 
   int _pop16BitStack() {
-    return _popStack() | _popStack() << 2;
+    return _popStack() | (_popStack() << 2);
   }
 
   _validateSP() {

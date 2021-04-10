@@ -34,9 +34,10 @@ class NesEmulator {
       throw ("${opcode.toHex()} is unknown instruction at rom address ${pc.toHex()}");
     }
 
-    print("cpu is running ${op.instr}");
+    var nextBytes = _getNextBytes(op, pc);
 
-    int cycles = cpu.emulate(op, _getNextBytes(op, pc));
+    print("cpu is running: ${op.instr} ${nextBytes.toHex().padRight(11, " ")} ${op.addrMode}");
+    int cycles = cpu.emulate(op, nextBytes);
 
     await Future.delayed(Duration(microseconds: (NesCPU.FREQUENCY * cycles).round()), run);
   }
