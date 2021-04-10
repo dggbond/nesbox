@@ -17,6 +17,10 @@ class Memory {
     return _mem.elementAt(address);
   }
 
+  int read16Bit(int address) {
+    return to16Bit([read(address + 1), read(address)]);
+  }
+
   void _mirror(int address, int chunkSize, List<int> range, int value) {
     while (_in(address += chunkSize, range)) {
       _mem[address] = value;

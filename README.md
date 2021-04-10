@@ -9,12 +9,13 @@ A nes emulator written in dart. You can use it in your flutter app.
 - [x] PPU
 - [x] APU
 - [x] ROM file parser
-- [x] Controller
+- [x] Controller in keyboard
 - [x] Render
 
 ## Features
 - [x] Basic nes emulator
 - [x] Game speed control (2x, 4x, 8x ...)
+- [x] Controller in handle
 - [x] Save/Read game progress
 - [x] Video record
 - [x] Multiple players from WIFI or bluetooth
@@ -34,6 +35,11 @@ nesfiles:
 6502 CPU:
 - [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
 - [emualtor101](http://www.emulator101.com/6502-emulator.html)
+
+Unoffical Opcodes(Instructions) \
+there are some unoffical opcodes in nes program. these docs may help.
+- [unofficial opcodes](https://wiki.nesdev.com/w/index.php/Programming_with_unofficial_opcodes)
+- [undocumented_opcodes](https://github.com/ltriant/nes/blob/master/doc/undocumented_opcodes.txt)
 
 ## Other nes emulators
 - [fogleman/nes](https://github.com/fogleman/nes): written in go.

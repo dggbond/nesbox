@@ -1,54 +1,44 @@
 library flutter_nes;
 
+import 'dart:async';
 import "dart:typed_data";
 
 import "package:flutter_nes/cpu/cpu.dart";
 import "package:flutter_nes/rom.dart" show NesROM;
 import "package:flutter_nes/util.dart";
-import "package:flutter_nes/logger.dart" show NesLogger;
 
 class NesEmulator {
   NesEmulator() {
-    this._logger = NesLogger();
     this.cpu = NesCPU();
   }
 
   NesCPU cpu;
   NesROM rom;
 
-  NesLogger _logger;
-
   // load nes rom data
   loadROM(Uint8List data) async {
     rom = NesROM(data);
   }
 
-  // start run the nes program
-  run() {
-    _logger.info("start running the nes program.");
+  run() async {
+    int pc = cpu.getPC();
+    int opcode = rom.readProgram(pc);
 
-    while (true) {
-      int pc = cpu.getPC();
-      int opcode = rom.readProgram(pc);
-
-      if (opcode == null) {
-        _logger.info("can't read more opcode. process exit.");
-        return;
-      }
-
-      Op op = findOp(opcode);
-      if (op == null) {
-        throw ("${opcode.toHex()} is unknown instruction at rom address ${pc.toHex()}");
-      }
-
-      _logger.info("cpu is running ${op.instr}");
-      cpu.emulate(op, _getNextBytes(op, pc));
-
-      // @TODO: temporary code, to remove it.
-      if (op.instr == Instr.BRK) {
-        return;
-      }
+    if (opcode == null) {
+      print("can't read more opcode. process exit.");
+      return;
     }
+
+    Op op = findOp(opcode);
+    if (op == null) {
+      throw ("${opcode.toHex()} is unknown instruction at rom address ${pc.toHex()}");
+    }
+
+    print("cpu is running ${op.instr}");
+
+    int cycles = cpu.emulate(op, _getNextBytes(op, pc));
+
+    await Future.delayed(Duration(microseconds: (NesCPU.FREQUENCY * cycles).round()), run);
   }
 
   // get bytes next to an instruction. so that cpu not need to read rom.
