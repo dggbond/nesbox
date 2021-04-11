@@ -131,3 +131,7 @@ bool isPageCrossed(int addr1, int addr2) {
 int to16Bit(dynamic bytes) {
   return (bytes[1] << 2) | bytes[0] & 0xffff;
 }
+
+String enumToString(dynamic value) {
+  return value.toString().split(".")[1];
+}

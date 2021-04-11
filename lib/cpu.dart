@@ -1,9 +1,7 @@
-library cpu;
-
 import "dart:typed_data";
 
-import "cpu_enum.dart";
-export "cpu_enum.dart";
+import "package:flutter_nes/cpu_enum.dart";
+export "package:flutter_nes/cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
 import "package:flutter_nes/util.dart";
@@ -18,12 +16,12 @@ class NesCPU {
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
-  int _regPC = 0; // Program Counter, the only 16-bit register, others are 8-bit
-  Int8 _regSP = Int8(0x1ff); // Stack Pointer register
-  Int8 _regPS = Int8(); // Processor Status register
-  Int8 _regA = Int8(); // Accumulator register
-  Int8 _regX = Int8(); // Index register, used for indexed addressing mode
-  Int8 _regY = Int8(); // Index register
+  int _regPC; // Program Counter, the only 16-bit register, others are 8-bit
+  Int8 _regSP; // Stack Pointer register
+  Int8 _regPS; // Processor Status register
+  Int8 _regA; // Accumulator register
+  Int8 _regX; // Index register, used for indexed addressing mode
+  Int8 _regY; // Index register
 
   // execute one instruction
   emulate(Op op, Uint8List nextBytes) {
@@ -616,7 +614,18 @@ class NesCPU {
     return op.cycles + extraCycles;
   }
 
-  int inspectMemory(int addr) => _memory.read(addr);
+  void powerOn() {
+    _regPC = 0;
+    _regSP = Int8(0x1ff);
+    _regPS = Int8();
+    _regA = Int8();
+    _regX = Int8();
+    _regY = Int8();
+  }
+
+  // expose the read/write methods on memory
+  int read(int addr) => _memory.read(addr);
+  void write(int addr, int value) => _memory.write(addr, value);
 
   int getPC() => _regPC;
   int getSP() => _regSP.value;

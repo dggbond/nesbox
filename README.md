@@ -1,5 +1,6 @@
 # flutter_nes
-A nes emulator written in dart. You can use it in your flutter app.
+A nes emulator written in dart. I write this project for fun and learn how nes emulator(hardwares) works.
+I highly recommend that you write your own emulator, because it's so interesting.
 
 ## Getting Started
 
@@ -10,20 +11,18 @@ A nes emulator written in dart. You can use it in your flutter app.
 - [x] APU
 - [x] ROM file parser
 - [x] Controller in keyboard
-- [x] Render
+- [x] Picture render
 
 ## Features
 - [x] Basic nes emulator
 - [x] Game speed control (2x, 4x, 8x ...)
 - [x] Controller in handle
-- [x] Save/Read game progress
+- [x] Save/Load game progress
 - [x] Video record
 - [x] Multiple players from WIFI or bluetooth
 
 ## References
-nes dev docs:
 - [NESDoc](http://nesdev.com/NESDoc.pdf)
-- [NESDev](http://wiki.nesdev.com/w/index.php/Nesdev)
 
 blogs:
 - [yizhang82.dev nes blogs](https://yizhang82.dev/blog/nes/)
@@ -35,6 +34,9 @@ nesfiles:
 6502 CPU:
 - [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
 - [emualtor101](http://www.emulator101.com/6502-emulator.html)
+
+PPU:
+- [nesdev PPU](https://wiki.nesdev.com/w/index.php/PPU)
 
 Unoffical Opcodes(Instructions) \
 there are some unoffical opcodes in nes program. these docs may help.

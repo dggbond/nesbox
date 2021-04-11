@@ -1,5 +1,3 @@
-library flutter_nes;
-
 import "dart:typed_data";
 
 import 'package:flutter_nes/util.dart';

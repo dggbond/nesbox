@@ -10,6 +10,6 @@ void main() {
     String filepath = path.join(path.dirname(Platform.script.path), "test/roms/Super_mario_brothers.nes");
 
     emulator.loadROM(File(filepath).readAsBytesSync());
-    await emulator.run();
+    await emulator.powerOn();
   });
 }

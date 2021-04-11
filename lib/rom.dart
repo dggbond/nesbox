@@ -1,18 +1,10 @@
-library flutter_nes;
-
 import "dart:typed_data";
 
 import "package:flutter/foundation.dart";
 import "package:flutter_nes/util.dart";
 
 class NesROM {
-  NesROM(this._rom) {
-    try {
-      _parseHeader();
-    } catch (err) {
-      throw ("parse header failed. $err");
-    }
-  }
+  NesROM(this._rom);
 
   static const int HEADER_SIZE = 0x0f; // 16 bytes
   static const int TRAINER_SIZE = 0x200; // 512 bytes
@@ -59,6 +51,18 @@ class NesROM {
 
   // TV system (0: NTSC; 1: PAL)
   int tvSystem;
+
+  void powerOn() {
+    if (_rom == null) {
+      throw ("there is not rom loaded. please load one nes game.");
+    }
+
+    try {
+      _parseHeader();
+    } catch (err) {
+      throw ("parse header failed. $err");
+    }
+  }
 
   int readProgram(int pc) {
     int pcStartAt = trainerFlag == 1 ? HEADER_SIZE + TRAINER_SIZE : HEADER_SIZE;
