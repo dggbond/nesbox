@@ -1,13 +1,19 @@
+import 'dart:typed_data';
+
 import 'package:flutter_nes/cpu.dart';
+import 'package:flutter_nes/rom.dart';
 
-class NesBUS {
-  NesBUS({NesCPU cpu}) : this._cpu = cpu;
+// bus is used to communite between hardwares.
+class NesBus {
+  NesCpu cpu;
+  NesRom rom;
 
-  final NesCPU _cpu;
-
+  // communite with cpu
+  int readCpuMemory(int address) => cpu.read(address);
   void writeCpuMemory(int address, int value) {
-    _cpu.write(address, value);
+    cpu.write(address, value);
   }
 
-  int readCpuMemory(int address) => _cpu.read(address);
+  // communite with rom
+  Uint8List readRomBytes(int start, int end) => rom.readBytes(start, end);
 }

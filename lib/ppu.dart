@@ -2,57 +2,57 @@ import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/bus.dart';
 import 'package:flutter_nes/util.dart';
 
-class NesPPU {
-  NesPPU(this._bus);
+class NesPpu {
+  NesPpu([this.bus]);
 
-  NesPPUMemory _memory = NesPPUMemory();
-  NesBUS _bus;
+  NesPpuMemory _memory = NesPpuMemory();
+  NesBus bus;
 
   // only write
   set _regPPUCTRL(Int8 value) {
-    _bus.writeCpuMemory(0x2000, value.value);
+    bus.writeCpuMemory(0x2000, value.value);
   }
 
   // only write
   set _regPPUMASK(Int8 value) {
-    _bus.writeCpuMemory(0x2001, value.value);
+    bus.writeCpuMemory(0x2001, value.value);
   }
 
   // only read, but this should be set when power up or reset.
-  Int8 get _regPPUSTATUS => Int8(_bus.readCpuMemory(0x2002));
+  Int8 get _regPPUSTATUS => Int8(bus.readCpuMemory(0x2002));
   set _regPPUSTATUS(Int8 value) {
-    _bus.writeCpuMemory(0x2002, value.value);
+    bus.writeCpuMemory(0x2002, value.value);
   }
 
   // only write
   set _regOAMADDR(Int8 value) {
-    _bus.writeCpuMemory(0x2003, value.value);
+    bus.writeCpuMemory(0x2003, value.value);
   }
 
   // only write
   set _regOAMDATA(Int8 value) {
-    _bus.writeCpuMemory(0x2004, value.value);
+    bus.writeCpuMemory(0x2004, value.value);
   }
 
   // only write
   set _regPPUSCROLL(Int8 value) {
-    _bus.writeCpuMemory(0x2005, value.value);
+    bus.writeCpuMemory(0x2005, value.value);
   }
 
   // only write
   set _regPPUADDR(Int8 value) {
-    _bus.writeCpuMemory(0x2006, value.value);
+    bus.writeCpuMemory(0x2006, value.value);
   }
 
   // read/write
-  Int8 get _regPPUDATA => Int8(_bus.readCpuMemory(0x2007));
+  Int8 get _regPPUDATA => Int8(bus.readCpuMemory(0x2007));
   set _regPPUDATA(Int8 value) {
-    _bus.writeCpuMemory(0x2007, value.value);
+    bus.writeCpuMemory(0x2007, value.value);
   }
 
   // only write
   set _regOMADMA(Int8 value) {
-    _bus.writeCpuMemory(0x4014, value.value);
+    bus.writeCpuMemory(0x4014, value.value);
   }
 
   void powerOn() {

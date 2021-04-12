@@ -1,9 +1,8 @@
 import "dart:convert";
-import "dart:typed_data";
 
-extension IntStringify on int {
+extension IntUtil on int {
   String toHex() {
-    return "\$" + this.toRadixString(16).padLeft(4, "0");
+    return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(4, "0");
   }
 
   int getBit(int n) {
@@ -11,13 +10,7 @@ extension IntStringify on int {
   }
 }
 
-extension Int8ListStringify on Int8List {
-  String toHex() {
-    return this.map((e) => e.toHex()).join(",");
-  }
-}
-
-extension Uint8ListStringify on Uint8List {
+extension IntListUtil on List<int> {
   String toHex() {
     return this.map((e) => e.toHex()).join(",");
   }

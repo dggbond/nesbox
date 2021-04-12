@@ -3,8 +3,14 @@ import "dart:typed_data";
 import "package:flutter/foundation.dart";
 import "package:flutter_nes/util.dart";
 
-class NesROM {
-  NesROM(this._rom);
+class NesRom {
+  NesRom(this._rom) {
+    try {
+      _parseHeader();
+    } catch (err) {
+      throw ("parse header failed. $err");
+    }
+  }
 
   static const int HEADER_SIZE = 0x0f; // 16 bytes
   static const int TRAINER_SIZE = 0x200; // 512 bytes
@@ -34,11 +40,10 @@ class NesROM {
   // 1: Ignore mirroring control or above mirroring bit; instead provide four-screen VRAM
   int ignoreMirroringFlag;
 
-  // Lower nybble of mapper number
-  int lowerMapperNumber;
+  // memory mapper number
+  int mapperNumber;
 
-  // Upper nybble of mapper number
-  int upperrMapperNumber;
+  int prgStartAt;
 
   // VS Unisystem
   int vsUnisystemFlag;
@@ -52,26 +57,8 @@ class NesROM {
   // TV system (0: NTSC; 1: PAL)
   int tvSystem;
 
-  void powerOn() {
-    if (_rom == null) {
-      throw ("there is not rom loaded. please load one nes game.");
-    }
-
-    try {
-      _parseHeader();
-    } catch (err) {
-      throw ("parse header failed. $err");
-    }
-  }
-
-  int readProgram(int pc) {
-    int pcStartAt = trainerFlag == 1 ? HEADER_SIZE + TRAINER_SIZE : HEADER_SIZE;
-
-    if (pc > prgROMSize * PRG_ROM_BANK_SIZE) {
-      throw ("read program failed. pc is overflow PRG-ROM area.");
-    }
-
-    return _rom[pc + pcStartAt];
+  Uint8List readBytes(int start, int end) {
+    return _rom.sublist(start, end);
   }
 
   _parseHeader() {
@@ -90,14 +77,16 @@ class NesROM {
     batteryFlag = flags6.getBit(1);
     trainerFlag = flags6.getBit(2);
     ignoreMirroringFlag = flags6.getBit(3);
-    lowerMapperNumber = (flags6 & 0xf0) >> 4;
 
     int flags7 = _rom.elementAt(7);
 
     vsUnisystemFlag = flags7.getBit(0);
     playChoice10Flag = flags7.getBit(1);
     isNES2 = flags7.getBit(2) << 1 | flags7.getBit(1) == 2;
-    upperrMapperNumber = (flags7 & 0xf0) >> 4;
+
+    mapperNumber = (flags7 & 0xf0) | (flags6 & 0xf0) >> 4;
+
+    prgStartAt = trainerFlag == 1 ? HEADER_SIZE + TRAINER_SIZE : HEADER_SIZE;
 
     if (isNES2) {
       _parseNES2();

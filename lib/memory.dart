@@ -3,9 +3,9 @@ import "dart:typed_data";
 import 'package:flutter_nes/util.dart';
 
 class Memory {
-  Memory(int size) : _mem = Int8List(size);
+  Memory(int size) : _mem = Uint8List(size);
 
-  final Int8List _mem;
+  final Uint8List _mem;
 
   int read(int address) {
     if (address >= _mem.length) {
@@ -17,6 +17,15 @@ class Memory {
 
   int read16Bit(int address) {
     return to16Bit([read(address + 1), read(address)]);
+  }
+
+  Uint8List readBytes(int start, int count) {
+    if (count == 0) return Uint8List(0);
+    return _mem.sublist(start, start + count);
+  }
+
+  void writeBytes(int start, int end, Uint8List data) {
+    _mem.setRange(start, end, data);
   }
 
   void _mirror(int address, int chunkSize, List<int> range, int value) {
@@ -31,8 +40,8 @@ class Memory {
   }
 }
 
-class NesCPUMemory extends Memory {
-  NesCPUMemory() : super(SIZE);
+class NesCpuMemory extends Memory {
+  NesCpuMemory() : super(SIZE);
 
   static const int SIZE = 0x10000;
 
@@ -67,7 +76,7 @@ class NesCPUMemory extends Memory {
     }
 
     if (_in(address, RAM_MIRRORS_RANGE) || _in(address, IO_REGS_1_MIRRORS_RANGE)) {
-      throw ("write memory failed. trying to write the mirrors memeory.");
+      throw ("write memory failed. trying to write the mirrors memory.");
     }
 
     if (_in(address, ZERO_PAGE_RANGE) || _in(address, STACK_RANGE) || _in(address, RAM_RANGE)) {
@@ -90,8 +99,8 @@ class NesCPUMemory extends Memory {
   }
 }
 
-class NesPPUMemory extends Memory {
-  NesPPUMemory() : super(SIZE);
+class NesPpuMemory extends Memory {
+  NesPpuMemory() : super(SIZE);
 
   static const int SIZE = 0x10000;
 
@@ -130,7 +139,7 @@ class NesPPUMemory extends Memory {
     if (_in(address, NAME_TABLES_MIRRORS_RANGE) ||
         _in(address, PALETTES_MIRRORS_RANGE) ||
         _in(address, MIRRORS_RANGE)) {
-      throw ("write memory failed. trying to write the mirrors memeory.");
+      throw ("write memory failed. trying to write the mirrors memory.");
     }
 
     if (_in(address, PATTERN_TABLE_0_RANGE) || _in(address, PATTERN_TABLE_1_RANGE)) {

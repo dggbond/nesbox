@@ -10,6 +10,9 @@ void main() {
     String filepath = path.join(path.dirname(Platform.script.path), "test/roms/Super_mario_brothers.nes");
 
     emulator.loadROM(File(filepath).readAsBytesSync());
-    await emulator.powerOn();
+    emulator.powerOn();
+
+    // this is waiting cpu runing, otherwise test will terminal because cpu is running async.
+    await Future.delayed(Duration(days: 1));
   });
 }
