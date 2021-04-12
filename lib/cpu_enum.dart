@@ -1,5 +1,3 @@
-library cpu;
-
 import "dart:convert";
 
 // see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes

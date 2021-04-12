@@ -1,32 +1,36 @@
-library cpu;
-
 import "dart:typed_data";
 
-import "cpu_enum.dart";
-export "cpu_enum.dart";
+import "package:flutter_nes/cpu_enum.dart";
+import 'package:flutter_nes/mapper.dart';
+export "package:flutter_nes/cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
 import "package:flutter_nes/util.dart";
+import 'package:flutter_nes/bus.dart';
 
 // emualtor for 6502 CPU
-class NesCPU {
-  NesCPU();
+class NesCpu {
+  NesCpu([this.bus]);
 
-  NesCPUMemory _memory = NesCPUMemory();
+  NesCpuMemory _memory = NesCpuMemory();
+  NesBus bus;
+  NesMapper _mapper;
 
   static const double FREQUENCY = 1.789773; // frequency per microsecond
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
-  int _regPC = 0; // Program Counter, the only 16-bit register, others are 8-bit
-  Int8 _regSP = Int8(0x1ff); // Stack Pointer register
-  Int8 _regPS = Int8(); // Processor Status register
-  Int8 _regA = Int8(); // Accumulator register
-  Int8 _regX = Int8(); // Index register, used for indexed addressing mode
-  Int8 _regY = Int8(); // Index register
+  int _regPC; // Program Counter, the only 16-bit register, others are 8-bit
+  Int8 _regSP; // Stack Pointer register
+  Int8 _regPS; // Processor Status register
+  Int8 _regA; // Accumulator register
+  Int8 _regX; // Index register, used for indexed addressing mode
+  Int8 _regY; // Index register
 
   // execute one instruction
-  emulate(Op op, Uint8List nextBytes) {
+  emulate(Op op, List<int> nextBytes) {
+    print("running: ${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
+
     int addr = 0; // memory address will used in operator instruction.
     Int8 M = Int8(); // the value in memory address of addr
     int extraCycles = 0;
@@ -195,7 +199,7 @@ class NesCPU {
         // IRQ is ignored when interrupt disable flag is set.
         if (_getInterruptDisableFlag() == 1) break;
 
-        _push16BitStack(_regPC);
+        _pushStack16Bit(_regPC);
         _pushStack(_regPS.value);
 
         _regPC = to16Bit([_memory.read(0xfffe), _memory.read(0xffff)]);
@@ -306,7 +310,7 @@ class NesCPU {
         break;
 
       case Instr.JSR:
-        _push16BitStack(_regPC - 1);
+        _pushStack16Bit(_regPC - 1);
         _regPC = addr;
         break;
 
@@ -404,13 +408,13 @@ class NesCPU {
 
       case Instr.RTI:
         _regPS = Int8(_popStack());
-        _regPC = _pop16BitStack();
+        _regPC = _popStack16Bit();
 
         _setInterruptDisableFlag(0);
         break;
 
       case Instr.RTS:
-        _regPC = _pop16BitStack() + 1;
+        _regPC = _popStack16Bit() + 1;
         break;
 
       case Instr.SBC:
@@ -616,7 +620,53 @@ class NesCPU {
     return op.cycles + extraCycles;
   }
 
-  int inspectMemory(int addr) => _memory.read(addr);
+  powerOn() {
+    reset();
+
+    if (bus == null) return;
+
+    // @TODO, use memory mapper to set program.
+    if (bus.rom.prgROMSize == 2) {
+      _memory.writeBytes(
+        NesCpuMemory.LOWER_PRG_ROM_RANGE[0],
+        NesCpuMemory.UPPER_PRG_ROM_RANGE[1],
+        bus.readRomBytes(bus.rom.prgStartAt, bus.rom.prgStartAt + 0x4000 * 2),
+      );
+    }
+
+    _execute();
+  }
+
+  void reset() {
+    _regPC = NesCpuMemory.LOWER_PRG_ROM_RANGE[0];
+    _regSP = Int8(0x1ff);
+    _regPS = Int8();
+    _regA = Int8();
+    _regX = Int8();
+    _regY = Int8();
+  }
+
+  _execute() async {
+    int opcode = _memory.read(_regPC);
+
+    if (opcode == null) {
+      print("can't find instruction from opcode: $opcode");
+      return;
+    }
+
+    Op op = findOp(opcode);
+    if (op == null) {
+      throw ("${opcode.toHex()} is unknown instruction at rom address ${_regPC.toHex()}");
+    }
+
+    int cycles = emulate(op, _memory.readBytes(_regPC + 1, op.bytes - 1));
+
+    await Future.delayed(Duration(microseconds: (FREQUENCY * cycles).round()), _execute);
+  }
+
+  // expose the read/write methods on memory
+  int read(int addr) => _memory.read(addr);
+  void write(int addr, int value) => _memory.write(addr, value);
 
   int getPC() => _regPC;
   int getSP() => _regSP.value;
@@ -678,18 +728,18 @@ class NesCPU {
     return value;
   }
 
-  void _push16BitStack(int value) {
+  void _pushStack16Bit(int value) {
     _pushStack(value >> 2 & 0xff);
     _pushStack(value & 0xff);
   }
 
-  int _pop16BitStack() {
-    return _popStack() | _popStack() << 2;
+  int _popStack16Bit() {
+    return _popStack() | (_popStack() << 2);
   }
 
   _validateSP() {
     if (_regSP.value < 0x100 || _regSP.value > 0x1ff) {
-      throw ("stack pointer ${_regSP.value.toHex()} is overflow!!!");
+      throw ("stack pointer ${_regSP.value.toHex()} is overflow stack area.");
     }
   }
 }

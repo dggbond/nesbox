@@ -1,12 +1,18 @@
 import "dart:convert";
 
-extension Stringify on int {
-  toHex() {
-    return "\$" + this.toRadixString(16).padLeft(4, "0");
+extension IntUtil on int {
+  String toHex() {
+    return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(4, "0");
   }
 
   int getBit(int n) {
     return (this >> n) & 1;
+  }
+}
+
+extension IntListUtil on List<int> {
+  String toHex() {
+    return this.map((e) => e.toHex()).join(",");
   }
 }
 
@@ -117,4 +123,8 @@ bool isPageCrossed(int addr1, int addr2) {
 // bytes can be Uint8List | List<int>
 int to16Bit(dynamic bytes) {
   return (bytes[1] << 2) | bytes[0] & 0xffff;
+}
+
+String enumToString(dynamic value) {
+  return value.toString().split(".")[1];
 }
