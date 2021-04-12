@@ -1,5 +1,3 @@
-import "dart:typed_data";
-
 import "package:flutter_nes/cpu_enum.dart";
 import 'package:flutter_nes/mapper.dart';
 export "package:flutter_nes/cpu_enum.dart";
