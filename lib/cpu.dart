@@ -28,6 +28,15 @@ class NesCpu {
 
   // execute one instruction
   emulate(Op op, List<int> nextBytes) {
+    // check NMI
+    if (_getNmiFlag() == 1) {
+      _pushStack16Bit(_regPC);
+      _pushStack(_regPS.value);
+
+      _regPC = _memory.read16Bit(0xfffa);
+      return 7;
+    }
+
     print("running: ${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
 
     int addr = 0; // memory address will used in operator instruction.
@@ -201,7 +210,7 @@ class NesCpu {
         _pushStack16Bit(_regPC);
         _pushStack(_regPS.value);
 
-        _regPC = to16Bit([_memory.read(0xfffe), _memory.read(0xffff)]);
+        _regPC = _memory.read16Bit(0xfffe);
         _setBreakCommandFlag(1);
         break;
 
@@ -678,6 +687,9 @@ class NesCpu {
   int _getBreakCommandFlag() => _regPS.getBit(4);
   int _getOverflowFlag() => _regPS.getBit(6);
   int _getNegativeFlag() => _regPS.getBit(7);
+
+  // I/O registers flags
+  int _getNmiFlag() => _memory.read(0x2000).getBit(7);
 
   void _setCarryFlag(int value) {
     _regPS.setBit(0, value);
