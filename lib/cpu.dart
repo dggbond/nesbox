@@ -1,10 +1,9 @@
-import "dart:typed_data";
-
 import "package:flutter_nes/cpu_enum.dart";
 import 'package:flutter_nes/mapper.dart';
 export "package:flutter_nes/cpu_enum.dart";
 
 import "package:flutter_nes/memory.dart";
+import 'package:flutter_nes/rom.dart';
 import "package:flutter_nes/util.dart";
 import 'package:flutter_nes/bus.dart';
 
@@ -29,6 +28,15 @@ class NesCpu {
 
   // execute one instruction
   emulate(Op op, List<int> nextBytes) {
+    // check NMI
+    if (_getNmiFlag() == 1) {
+      _pushStack16Bit(_regPC);
+      _pushStack(_regPS.value);
+
+      _regPC = _memory.read16Bit(0xfffa);
+      return 7;
+    }
+
     print("running: ${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
 
     int addr = 0; // memory address will used in operator instruction.
@@ -202,7 +210,7 @@ class NesCpu {
         _pushStack16Bit(_regPC);
         _pushStack(_regPS.value);
 
-        _regPC = to16Bit([_memory.read(0xfffe), _memory.read(0xffff)]);
+        _regPC = _memory.read16Bit(0xfffe);
         _setBreakCommandFlag(1);
         break;
 
@@ -626,12 +634,9 @@ class NesCpu {
     if (bus == null) return;
 
     // @TODO, use memory mapper to set program.
-    if (bus.rom.prgROMSize == 2) {
-      _memory.writeBytes(
-        NesCpuMemory.LOWER_PRG_ROM_RANGE[0],
-        NesCpuMemory.UPPER_PRG_ROM_RANGE[1],
-        bus.readRomBytes(bus.rom.prgStartAt, bus.rom.prgStartAt + 0x4000 * 2),
-      );
+    if (bus.rom.prgNum == 2) {
+      int prgStart = NesRom.HEADER_SIZE + bus.rom.trainerSize;
+      _memory.writeBytes(NesCpuMemory.PRG_ROM_RANGE, bus.readRomBytes([prgStart, prgStart + NesRom.PRG_ROM_BANK_SIZE * 2]));
     }
 
     _execute();
@@ -683,6 +688,9 @@ class NesCpu {
   int _getOverflowFlag() => _regPS.getBit(6);
   int _getNegativeFlag() => _regPS.getBit(7);
 
+  // I/O registers flags
+  int _getNmiFlag() => _memory.read(0x2000).getBit(7);
+
   void _setCarryFlag(int value) {
     _regPS.setBit(0, value);
   }
@@ -713,14 +721,18 @@ class NesCpu {
 
   // stack works top-down, see NESDoc page 12.
   _pushStack(int value) {
-    _validateSP();
+    if (_regSP.value < 0x100) {
+      throw ("push stack failed. stack pointer ${_regSP.value.toHex()} is overflow stack area.");
+    }
 
     _memory.write(_regSP.value, value);
     _regSP -= Int8(1);
   }
 
   int _popStack() {
-    _validateSP();
+    if (_regSP.value >= 0x1ff) {
+      throw ("pop stack failed. stack pointer ${_regSP.value.toHex()} is at the start of stack area.");
+    }
 
     int value = _memory.read(_regSP.value);
     _regSP += Int8(1);
@@ -735,11 +747,5 @@ class NesCpu {
 
   int _popStack16Bit() {
     return _popStack() | (_popStack() << 2);
-  }
-
-  _validateSP() {
-    if (_regSP.value < 0x100 || _regSP.value > 0x1ff) {
-      throw ("stack pointer ${_regSP.value.toHex()} is overflow stack area.");
-    }
   }
 }
