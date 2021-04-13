@@ -24,8 +24,8 @@ class Memory {
     return _mem.sublist(start, start + count);
   }
 
-  void writeBytes(int start, int end, Uint8List data) {
-    _mem.setRange(start, end, data);
+  void writeBytes(List<int> range, Uint8List data) {
+    _mem.setRange(range[0], range[1], data);
   }
 
   void _mirror(int address, int chunkSize, List<int> range, int value) {
@@ -65,6 +65,7 @@ class NesCpuMemory extends Memory {
   // PRG-ROM RANGES
   static const List<int> LOWER_PRG_ROM_RANGE = [0x8000, 0xc000];
   static const List<int> UPPER_PRG_ROM_RANGE = [0xc000, 0x10000];
+  static const List<int> PRG_ROM_RANGE = [0x8000, 0x10000];
 
   void write(int address, int value) {
     if (!Int8.isValid(value)) {
@@ -89,11 +90,7 @@ class NesCpuMemory extends Memory {
       _mirror(address, 0x0008, IO_REGS_1_MIRRORS_RANGE, value);
     }
 
-    if (_in(address, IO_REGS_2_RANGE) ||
-        _in(address, EXPANSION_ROM_RANGE) ||
-        _in(address, SRAM_RANGE) ||
-        _in(address, LOWER_PRG_ROM_RANGE) ||
-        _in(address, UPPER_PRG_ROM_RANGE)) {
+    if (_in(address, IO_REGS_2_RANGE) || _in(address, EXPANSION_ROM_RANGE) || _in(address, SRAM_RANGE) || _in(address, LOWER_PRG_ROM_RANGE) || _in(address, UPPER_PRG_ROM_RANGE)) {
       _mem[address] = value;
     }
   }
@@ -107,6 +104,7 @@ class NesPpuMemory extends Memory {
   // Pattern Tables RANGES
   static const List<int> PATTERN_TABLE_0_RANGE = [0x0000, 0x1000];
   static const List<int> PATTERN_TABLE_1_RANGE = [0x1000, 0x2000];
+  static const List<int> PATTERN_TABLE_RANGE = [0x0000, 0x2000];
 
   // Name Tables RANGES
   static const List<int> NAME_TABLE_0_RANGE = [0x2000, 0x23c0];
@@ -136,9 +134,7 @@ class NesPpuMemory extends Memory {
       throw ("writing memory failed. this address is overflow memory size.");
     }
 
-    if (_in(address, NAME_TABLES_MIRRORS_RANGE) ||
-        _in(address, PALETTES_MIRRORS_RANGE) ||
-        _in(address, MIRRORS_RANGE)) {
+    if (_in(address, NAME_TABLES_MIRRORS_RANGE) || _in(address, PALETTES_MIRRORS_RANGE) || _in(address, MIRRORS_RANGE)) {
       throw ("write memory failed. trying to write the mirrors memory.");
     }
 

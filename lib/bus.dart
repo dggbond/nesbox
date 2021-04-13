@@ -15,5 +15,5 @@ class NesBus {
   }
 
   // communite with rom
-  Uint8List readRomBytes(int start, int end) => rom.readBytes(start, end);
+  Uint8List readRomBytes(List<int> range) => rom.readBytes(range);
 }

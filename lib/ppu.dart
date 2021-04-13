@@ -1,6 +1,9 @@
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/bus.dart';
+import 'package:flutter_nes/rom.dart';
 import 'package:flutter_nes/util.dart';
+
+List<int> combinePatterns(List<int> left, List<int> right) {}
 
 class NesPpu {
   NesPpu([this.bus]);
@@ -63,6 +66,13 @@ class NesPpu {
     _regPPUSCROLL = Int8(0x00);
     _regPPUADDR = Int8(0x00);
     _regPPUDATA = Int8(0x00);
+
+    // fill the pattern table
+    if (bus.rom.chrNum == 1) {
+      int chrStart = NesRom.HEADER_SIZE + bus.rom.trainerSize + bus.rom.chrNum * NesRom.PRG_ROM_BANK_SIZE;
+
+      _memory.writeBytes(NesPpuMemory.PATTERN_TABLE_RANGE, bus.readRomBytes([chrStart, chrStart + NesRom.CHR_ROM_BANK_SIZE]));
+    }
   }
 
   void reset() {
