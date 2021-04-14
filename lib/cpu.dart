@@ -1,19 +1,16 @@
+import 'dart:typed_data';
+
 import "package:flutter_nes/cpu_enum.dart";
-import 'package:flutter_nes/mapper.dart';
 export "package:flutter_nes/cpu_enum.dart";
 
-import "package:flutter_nes/memory.dart";
-import 'package:flutter_nes/rom.dart';
 import "package:flutter_nes/util.dart";
 import 'package:flutter_nes/bus.dart';
 
 // emualtor for 6502 CPU
-class NesCpu {
-  NesCpu([this.bus]);
+class CPU {
+  CPU(this.bus);
 
-  NesCpuMemory _memory = NesCpuMemory();
-  NesBus bus;
-  NesMapper _mapper;
+  BUS bus;
 
   static const double FREQUENCY = 1.789773; // frequency per microsecond
 
@@ -33,7 +30,7 @@ class NesCpu {
       _pushStack16Bit(_regPC);
       _pushStack(_regPS.value);
 
-      _regPC = _memory.read16Bit(0xfffa);
+      _regPC = bus.cpuRead16Bit(0xfffa);
       return 7;
     }
 
@@ -47,27 +44,27 @@ class NesCpu {
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
         addr = nextBytes[0];
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
         break;
 
       case AddrMode.ZeroPageX:
         addr = nextBytes[0] + _regX.value;
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
         break;
 
       case AddrMode.ZeroPageY:
         addr = nextBytes[0] + _regY.value;
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
         break;
 
       case AddrMode.Absolute:
         addr = to16Bit(nextBytes);
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
         break;
 
       case AddrMode.AbsoluteX:
         addr = to16Bit(nextBytes) + _regX.value;
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
 
         if (isPageCrossed(addr, addr - _regX.value)) {
           extraCycles++;
@@ -77,7 +74,7 @@ class NesCpu {
 
       case AddrMode.AbsoluteY:
         addr = to16Bit(nextBytes) + _regY.value;
-        M = Int8(_memory.read(addr));
+        M = Int8(bus.cpuRead(addr));
 
         if (isPageCrossed(addr, addr - _regY.value)) {
           extraCycles++;
@@ -86,8 +83,8 @@ class NesCpu {
         break;
 
       case AddrMode.Indirect:
-        addr = _memory.read16Bit(to16Bit(nextBytes));
-        M = Int8(_memory.read(addr));
+        addr = bus.cpuRead16Bit(to16Bit(nextBytes));
+        M = Int8(bus.cpuRead(addr));
         break;
 
       // this addressing mode not need to access memory
@@ -108,8 +105,8 @@ class NesCpu {
         break;
 
       case AddrMode.IndexedIndirect:
-        addr = _memory.read16Bit(nextBytes[0] + _regX.value);
-        M = Int8(_memory.read(addr));
+        addr = bus.cpuRead16Bit(nextBytes[0] + _regX.value);
+        M = Int8(bus.cpuRead(addr));
 
         if (isPageCrossed(addr, addr - _regX.value)) {
           extraCycles++;
@@ -117,8 +114,8 @@ class NesCpu {
         break;
 
       case AddrMode.IndirectIndexed:
-        addr = _memory.read16Bit(nextBytes[0]) + _regY.value;
-        M = Int8(_memory.read(addr));
+        addr = bus.cpuRead16Bit(nextBytes[0]) + _regY.value;
+        M = Int8(bus.cpuRead(addr));
         break;
     }
 
@@ -145,7 +142,7 @@ class NesCpu {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          _memory.write(addr, M.value);
+          bus.cpuWrite(addr, M.value);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -210,7 +207,7 @@ class NesCpu {
         _pushStack16Bit(_regPC);
         _pushStack(_regPS.value);
 
-        _regPC = _memory.read16Bit(0xfffe);
+        _regPC = bus.cpuRead16Bit(0xfffe);
         _setBreakCommandFlag(1);
         break;
 
@@ -264,7 +261,7 @@ class NesCpu {
 
       case Instr.DEC:
         M -= Int8(1);
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         _setZeroFlag(M.isZero());
         _setNegativeFlag(M.isNegative());
@@ -293,7 +290,7 @@ class NesCpu {
 
       case Instr.INC:
         M += Int8(1);
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         _setZeroFlag(M.isZero());
         _setNegativeFlag(M.isNegative());
@@ -349,7 +346,7 @@ class NesCpu {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          _memory.write(addr, M.value);
+          bus.cpuWrite(addr, M.value);
         }
 
         _setCarryFlag(M.getBit(0));
@@ -392,7 +389,7 @@ class NesCpu {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          _memory.write(addr, M.value);
+          bus.cpuWrite(addr, M.value);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -406,7 +403,7 @@ class NesCpu {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          _memory.write(addr, M.value);
+          bus.cpuWrite(addr, M.value);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -447,15 +444,15 @@ class NesCpu {
         break;
 
       case Instr.STA:
-        _memory.write(addr, _regA.value);
+        bus.cpuWrite(addr, _regA.value);
         break;
 
       case Instr.STX:
-        _memory.write(addr, _regX.value);
+        bus.cpuWrite(addr, _regX.value);
         break;
 
       case Instr.STY:
-        _memory.write(addr, _regY.value);
+        bus.cpuWrite(addr, _regY.value);
         break;
 
       case Instr.TAX:
@@ -539,13 +536,13 @@ class NesCpu {
 
       case Instr.SAX:
         _regX &= _regA;
-        _memory.write(addr, _regX.value);
+        bus.cpuWrite(addr, _regX.value);
         break;
 
       case Instr.DCP:
         // DEC
         M -= Int8(1);
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // CMP
         _setCarryFlag(_regA >= M ? 1 : 0);
@@ -556,7 +553,7 @@ class NesCpu {
       case Instr.ISC:
         // INC
         M += Int8(1);
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // SBC
         _regA -= M + Int8(1 - _getCarryFlag());
@@ -570,7 +567,7 @@ class NesCpu {
       case Instr.RLA:
         // ROL
         M = (M << 1).setBit(0, _getCarryFlag());
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // AND
         _regA &= M;
@@ -583,7 +580,7 @@ class NesCpu {
       case Instr.RRA:
         // ROR
         M = (M >> 1).setBit(7, _getCarryFlag());
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // ADC
         _regA += M + Int8(_getCarryFlag());
@@ -597,7 +594,7 @@ class NesCpu {
       case Instr.SLO:
         // ASL
         M <<= 1;
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // ORA
         _regA |= M;
@@ -610,7 +607,7 @@ class NesCpu {
       case Instr.SRE:
         // LSR
         M >>= 1;
-        _memory.write(addr, M.value);
+        bus.cpuWrite(addr, M.value);
 
         // EOR
         _regA ^= M;
@@ -631,19 +628,11 @@ class NesCpu {
   powerOn() {
     reset();
 
-    if (bus == null) return;
-
-    // @TODO, use memory mapper to set program.
-    if (bus.rom.prgNum == 2) {
-      int prgStart = NesRom.HEADER_SIZE + bus.rom.trainerSize;
-      _memory.writeBytes(NesCpuMemory.PRG_ROM_RANGE, bus.readRomBytes([prgStart, prgStart + NesRom.PRG_ROM_BANK_SIZE * 2]));
-    }
-
     _execute();
   }
 
   void reset() {
-    _regPC = NesCpuMemory.LOWER_PRG_ROM_RANGE[0];
+    _regPC = 0x8000;
     _regSP = Int8(0x1ff);
     _regPS = Int8();
     _regA = Int8();
@@ -652,7 +641,7 @@ class NesCpu {
   }
 
   _execute() async {
-    int opcode = _memory.read(_regPC);
+    int opcode = bus.cpuRead(_regPC);
 
     if (opcode == null) {
       print("can't find instruction from opcode: $opcode");
@@ -664,14 +653,19 @@ class NesCpu {
       throw ("${opcode.toHex()} is unknown instruction at rom address ${_regPC.toHex()}");
     }
 
-    int cycles = emulate(op, _memory.readBytes(_regPC + 1, op.bytes - 1));
+    Uint8List nextBytes = Uint8List(op.bytes - 1);
+    Iterable.generate(op.bytes - 1).forEach((n) {
+      nextBytes[n] = bus.cpuRead(_regPC + n + 1);
+    });
+
+    int cycles = emulate(op, nextBytes);
 
     await Future.delayed(Duration(microseconds: (FREQUENCY * cycles).round()), _execute);
   }
 
-  // expose the read/write methods on memory
-  int read(int addr) => _memory.read(addr);
-  void write(int addr, int value) => _memory.write(addr, value);
+  // expose the cpuRead/write methods on memory
+  int cpuRead(int addr) => bus.cpuRead(addr);
+  void write(int addr, int value) => bus.cpuWrite(addr, value);
 
   int getPC() => _regPC;
   int getSP() => _regSP.value;
@@ -689,7 +683,7 @@ class NesCpu {
   int _getNegativeFlag() => _regPS.getBit(7);
 
   // I/O registers flags
-  int _getNmiFlag() => _memory.read(0x2000).getBit(7);
+  int _getNmiFlag() => bus.cpuRead(0x2000).getBit(7);
 
   void _setCarryFlag(int value) {
     _regPS.setBit(0, value);
@@ -725,7 +719,7 @@ class NesCpu {
       throw ("push stack failed. stack pointer ${_regSP.value.toHex()} is overflow stack area.");
     }
 
-    _memory.write(_regSP.value, value);
+    bus.cpuWrite(_regSP.value, value);
     _regSP -= Int8(1);
   }
 
@@ -734,7 +728,7 @@ class NesCpu {
       throw ("pop stack failed. stack pointer ${_regSP.value.toHex()} is at the start of stack area.");
     }
 
-    int value = _memory.read(_regSP.value);
+    int value = bus.cpuRead(_regSP.value);
     _regSP += Int8(1);
 
     return value;

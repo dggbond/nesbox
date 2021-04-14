@@ -2,32 +2,39 @@ library flutter_nes;
 
 import "dart:typed_data";
 
+import 'package:flutter_nes/cartridge.dart';
 import "package:flutter_nes/cpu.dart";
 import "package:flutter_nes/ppu.dart";
-import "package:flutter_nes/rom.dart";
 import "package:flutter_nes/bus.dart";
+import "package:flutter_nes/ram.dart";
 
-class NesEmulator {
-  NesEmulator() {
-    cpu = NesCpu(this._bus);
-    ppu = NesPpu(this._bus);
+class Emulator {
+  Emulator() {
+    cpu = CPU(bus);
+    ppu = PPU(bus);
 
-    _bus.cpu = cpu;
+    bus.cpu = cpu;
+    bus.ppu = ppu;
+    bus.cpuRAM = cpuWorkRAM;
+    bus.ppuRAM = ppuVideoRAM;
+    bus.cardtridge = cardtridge;
   }
 
-  NesBus _bus = NesBus();
+  BUS bus = BUS();
 
-  NesCpu cpu;
-  NesPpu ppu;
-  NesRom rom;
+  CPU cpu;
+  PPU ppu;
+  RAM cpuWorkRAM = RAM(0x800);
+  RAM ppuVideoRAM = RAM(0x800);
+  Cardtridge cardtridge = Cardtridge();
 
   // load nes rom data
-  loadROM(Uint8List data) async {
-    _bus.rom = rom = NesRom(data);
+  loadGame(Uint8List data) {
+    this.cardtridge.loadGame(data);
   }
 
   powerOn() {
-    cpu.powerOn();
     ppu.powerOn();
+    cpu.powerOn();
   }
 }

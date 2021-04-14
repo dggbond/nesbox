@@ -6,10 +6,10 @@ import "dart:io" show Platform, File;
 
 void main() {
   test("nes emulator load nes file", () async {
-    final emulator = new NesEmulator();
+    final emulator = new Emulator();
     String filepath = path.join(path.dirname(Platform.script.toFilePath()), "test/roms/Super_mario_brothers.nes");
-    
-    emulator.loadROM(File(filepath).readAsBytesSync());
+
+    emulator.loadGame(File(filepath).readAsBytesSync());
     emulator.powerOn();
 
     // this is waiting cpu runing, otherwise test will terminal because cpu is running async.
