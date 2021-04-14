@@ -1,1 +1,1 @@
-class NesMapper {}
+class Mapper {}

@@ -8,6 +8,15 @@ extension IntUtil on int {
   int getBit(int n) {
     return (this >> n) & 1;
   }
+
+  int getBits(int start, int end) {
+    int bits = 0;
+    Iterable.generate(end - start + 1).forEach((n) {
+      bits <<= 1;
+      bits |= this.getBit(end - n);
+    });
+    return bits;
+  }
 }
 
 extension IntListUtil on List<int> {
