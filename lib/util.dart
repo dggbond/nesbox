@@ -21,6 +21,19 @@ extension IntListUtil on List<int> {
   String toHex() {
     return this.map((e) => e.toHex()).join(",");
   }
+
+  bool equalsTo(List<int> targetList) {
+    // equals length first.
+    if (targetList.length != this.length) return false;
+
+    for (int i = 0; i < this.length; i++) {
+      if (this.elementAt(i) != targetList.elementAt(i)) {
+        return false;
+      }
+    }
+
+    return true;
+  }
 }
 
 class Int8 {

@@ -1,5 +1,5 @@
-import "package:flutter_test/flutter_test.dart";
 import "package:flutter_nes/util.dart";
+import "package:test/test.dart";
 
 void main() {
   test("Int8 sign", () {

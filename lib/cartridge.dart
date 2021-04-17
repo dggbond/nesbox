@@ -1,6 +1,5 @@
 import "dart:typed_data";
 
-import "package:flutter/foundation.dart";
 import "package:flutter_nes/util.dart";
 
 class Cardtridge {
@@ -31,7 +30,7 @@ class Cardtridge {
   loadGame(Uint8List data) {
     // see: https://wiki.nesdev.com/w/index.php/INES
     // 0-3: Constant $4E $45 $53 $1A ("NES" followed by MS-DOS end-of-file)
-    if (!listEquals(data.sublist(0, 4), Uint8List.fromList([0x4e, 0x45, 0x53, 0x1a]))) {
+    if (!data.sublist(0, 4).equalsTo([0x4e, 0x45, 0x53, 0x1a])) {
       throw ("the first 4 bytes not equals to the nes identify");
     }
 

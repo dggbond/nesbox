@@ -647,7 +647,8 @@ class CPU {
     await Future.delayed(Duration(microseconds: (FREQUENCY * cycles).round()), _execute);
   }
 
-  int _getNmiFlag() => bus.cpuRead(0x2000).getBit(7);
+  // @TODO: implement NMI interrupt
+  int _getNmiFlag() => 0;
 
   int _getCarryFlag() => _regPS.getBit(0);
   int _getZeroFlag() => _regPS.getBit(1);

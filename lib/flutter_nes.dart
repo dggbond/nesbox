@@ -41,6 +41,6 @@ class NesEmulator {
 
   powerOn() {
     ppu.powerOn();
-    // cpu.powerOn();
+    cpu.powerOn();
   }
 }
