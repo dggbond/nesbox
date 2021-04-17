@@ -1,12 +1,10 @@
-import "dart:convert";
-
 extension IntUtil on int {
   String toHex() {
     return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(4, "0");
   }
 
   int getBit(int n) {
-    return (this >> n) & 1;
+    return (this >> n) & 0x01;
   }
 
   int getBits(int start, int end) {
@@ -46,35 +44,44 @@ class Int8 {
   }
 
   Int8 operator &(Int8 target) {
-    return Int8(value & target.value);
+    return Int8(val & target.val);
   }
 
   Int8 operator |(Int8 target) {
-    return Int8(value | target.value);
+    return Int8(val | target.val);
   }
 
   Int8 operator ^(Int8 target) {
-    return Int8(value ^ target.value);
+    return Int8(val ^ target.val);
   }
 
   Int8 operator +(Int8 target) {
-    return Int8(value + target.value);
+    return Int8(val + target.val);
   }
 
   Int8 operator -(Int8 target) {
-    return Int8(value - target.value);
+    return Int8(val - target.val);
   }
 
   bool operator >=(Int8 target) {
-    return value >= target.value;
+    return val >= target.val;
   }
 
   bool operator >(Int8 target) {
-    return value > target.value;
+    return val > target.val;
   }
 
   int getBit(int n) {
     return (_num >> n) & 1;
+  }
+
+  int getBits(int start, int end) {
+    int bits = 0;
+    Iterable.generate(end - start + 1).forEach((n) {
+      bits <<= 1;
+      bits |= this.getBit(end - n);
+    });
+    return bits;
   }
 
   Int8 setBit(int n, int value) {
@@ -83,7 +90,7 @@ class Int8 {
     } else if (value == 0) {
       _num &= ~(1 << n);
     } else {
-      throw ("value must be 0 or 1");
+      throw (".value must be 0 or 1");
     }
 
     return Int8(_num);
@@ -98,7 +105,7 @@ class Int8 {
   }
 
   int isZero() {
-    return value == 0 ? 1 : 0;
+    return val == 0 ? 1 : 0;
   }
 
   int isOverflow() {
@@ -109,19 +116,13 @@ class Int8 {
     return (a << 2 + b) & 0xff;
   }
 
-  int get value {
+  int get val {
     return _num & 0xff;
   }
 
   int get sign {
     return _num >> 7 & 1;
   }
-}
-
-String jsonStringify(Object object) {
-  var encoder = new JsonEncoder.withIndent("  ");
-
-  return encoder.convert(object);
 }
 
 // one page is 8-bit size;

@@ -21,8 +21,12 @@ class Cardtridge {
   int get chrNum => rom.elementAt(5);
   int get trainerNum => rom.elementAt(6).getBit(2);
 
-  int get prgStart => 0x10 + trainerNum * TRAINER_SIZE;
-  int get chrStart => prgStart + prgNum * PRG_BANK_SIZE;
+  // 0: horizontal (vertical arrangement) (CIRAM A10 = PPU A11)
+  // 1: vertical (horizontal arrangement) (CIRAM A10 = PPU A10)
+  int get mirroring => rom.elementAt(6).getBit(0);
+
+  int get _prgStart => 0x10 + trainerNum * TRAINER_SIZE;
+  int get _chrStart => _prgStart + prgNum * PRG_BANK_SIZE;
 
   loadGame(Uint8List data) {
     // see: https://wiki.nesdev.com/w/index.php/INES
@@ -37,11 +41,11 @@ class Cardtridge {
       trainerROM = data.sublist(0x0010, 0x0010 + TRAINER_SIZE);
     }
 
-    prgROM = data.sublist(prgStart, prgStart + prgNum * PRG_BANK_SIZE);
-    chrROM = data.sublist(chrStart, chrStart + chrNum * CHR_BANK_SIZE);
+    prgROM = data.sublist(_prgStart, _prgStart + prgNum * PRG_BANK_SIZE);
+    chrROM = data.sublist(_chrStart, _chrStart + chrNum * CHR_BANK_SIZE);
   }
 
-  int readPRG(int address) {
-    return prgROM.elementAt(address);
-  }
+  int readPRG(int address) => prgROM.elementAt(address);
+  int readCHR(int address) => chrROM.elementAt(address);
+  void wirteCHR(int address, int value) => chrROM[address] = value;
 }

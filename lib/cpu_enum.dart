@@ -1,4 +1,4 @@
-import "dart:convert";
+part of "package:flutter_nes/cpu.dart";
 
 // see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
 enum AddrMode {
@@ -129,7 +129,7 @@ class Op {
   }
 }
 
-const Map<int, Op> _OP_MAP = {
+const Map<int, Op> CPU_OPS = {
   0x69: Op(Instr.ADC, AddrMode.Immediate, 2, 2),
   0x65: Op(Instr.ADC, AddrMode.ZeroPage, 2, 3),
   0x75: Op(Instr.ADC, AddrMode.ZeroPageX, 2, 4),
@@ -428,7 +428,3 @@ const Map<int, Op> _OP_MAP = {
   0x04: Op(Instr.IGN, AddrMode.ZeroPage, 2, 3),
   0x14: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
 };
-
-Op findOp(int opcode) {
-  return _OP_MAP[opcode];
-}
