@@ -141,19 +141,26 @@ class PPU {
   Frame renderTiles() {
     Frame frame = Frame();
 
-    for (int i = 0; i < 0x100; i++) {
+    for (int i = 0; i < 0x200; i++) {
       _renderTile(i, frame);
     }
     return frame;
   }
 
   void _renderTile(int tileNumber, Frame frame) {
-    var tile = bus.ppuReadBank(tileNumber * 16, 16);
+    var tile = bus.ppuReadBank(tileNumber * 0x10, 0x10);
+    int originX = 0, originY = 0;
+
+    // background tile
+    if (tileNumber >= 0x100) {
+      originX = 16 * 8;
+      originY = -16 * 8;
+    }
 
     for (int y = 0; y < 8; y++) {
       for (int x = 7; x >= 0; x--) {
         int paletteEntry = tile[y + 8].getBit(x) << 1 | tile[y].getBit(x);
-        frame.setPixel((tileNumber % 32) * 8 + (7 - x), (tileNumber / 32).floor() * 8 + y, _testPalette(paletteEntry));
+        frame.setPixel(originX + (tileNumber % 16) * 8 + (7 - x), originY + (tileNumber / 16).floor() * 8 + y, _testPalette(paletteEntry));
       }
     }
   }
@@ -162,8 +169,8 @@ class PPU {
     return {
       0: NES_SYS_PALETTES[0x02],
       1: NES_SYS_PALETTES[0x05],
-      2: NES_SYS_PALETTES[0x27],
-      3: NES_SYS_PALETTES[0x17],
+      2: NES_SYS_PALETTES[0x28],
+      3: NES_SYS_PALETTES[0x18],
     }[entry];
   }
 
