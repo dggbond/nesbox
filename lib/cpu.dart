@@ -1,10 +1,10 @@
-import 'dart:typed_data';
-
-import "package:flutter_nes/cpu_enum.dart";
-export "package:flutter_nes/cpu_enum.dart";
+import "dart:typed_data";
 
 import "package:flutter_nes/util.dart";
 import 'package:flutter_nes/bus.dart';
+import "dart:convert";
+
+part "package:flutter_nes/cpu_enum.dart";
 
 // emualtor for 6502 CPU
 class CPU {
@@ -12,7 +12,7 @@ class CPU {
 
   BUS bus;
 
-  static const double FREQUENCY = 1.789773; // frequency per microsecond
+  static const double FREQUENCY = 1.789773; // how many microseconds take per cycle
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
@@ -25,10 +25,9 @@ class CPU {
 
   // execute one instruction
   emulate(Op op, List<int> nextBytes) {
-    // check NMI
     if (_getNmiFlag() == 1) {
       _pushStack16Bit(_regPC);
-      _pushStack(_regPS.value);
+      _pushStack(_regPS.val);
 
       _regPC = bus.cpuRead16Bit(0xfffa);
       return 7;
@@ -37,7 +36,7 @@ class CPU {
     print("running: ${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
 
     int addr = 0; // memory address will used in operator instruction.
-    Int8 M = Int8(); // the value in memory address of addr
+    Int8 M = Int8(); // the .value in memory address of addr
     int extraCycles = 0;
     int extraBytes = 0;
 
@@ -48,12 +47,12 @@ class CPU {
         break;
 
       case AddrMode.ZeroPageX:
-        addr = nextBytes[0] + _regX.value;
+        addr = nextBytes[0] + _regX.val;
         M = Int8(bus.cpuRead(addr));
         break;
 
       case AddrMode.ZeroPageY:
-        addr = nextBytes[0] + _regY.value;
+        addr = nextBytes[0] + _regY.val;
         M = Int8(bus.cpuRead(addr));
         break;
 
@@ -63,20 +62,20 @@ class CPU {
         break;
 
       case AddrMode.AbsoluteX:
-        addr = to16Bit(nextBytes) + _regX.value;
+        addr = to16Bit(nextBytes) + _regX.val;
         M = Int8(bus.cpuRead(addr));
 
-        if (isPageCrossed(addr, addr - _regX.value)) {
+        if (isPageCrossed(addr, addr - _regX.val)) {
           extraCycles++;
         }
 
         break;
 
       case AddrMode.AbsoluteY:
-        addr = to16Bit(nextBytes) + _regY.value;
+        addr = to16Bit(nextBytes) + _regY.val;
         M = Int8(bus.cpuRead(addr));
 
-        if (isPageCrossed(addr, addr - _regY.value)) {
+        if (isPageCrossed(addr, addr - _regY.val)) {
           extraCycles++;
         }
 
@@ -93,7 +92,7 @@ class CPU {
 
       // this addressing mode is directly access the accumulator (register)
       case AddrMode.Accumulator:
-        M = Int8(_regA.value);
+        M = Int8(_regA.val);
         break;
 
       case AddrMode.Immediate:
@@ -105,16 +104,16 @@ class CPU {
         break;
 
       case AddrMode.IndexedIndirect:
-        addr = bus.cpuRead16Bit(nextBytes[0] + _regX.value);
+        addr = bus.cpuRead16Bit(nextBytes[0] + _regX.val);
         M = Int8(bus.cpuRead(addr));
 
-        if (isPageCrossed(addr, addr - _regX.value)) {
+        if (isPageCrossed(addr, addr - _regX.val)) {
           extraCycles++;
         }
         break;
 
       case AddrMode.IndirectIndexed:
-        addr = bus.cpuRead16Bit(nextBytes[0]) + _regY.value;
+        addr = bus.cpuRead16Bit(nextBytes[0]) + _regY.val;
         M = Int8(bus.cpuRead(addr));
         break;
     }
@@ -142,7 +141,7 @@ class CPU {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          bus.cpuWrite(addr, M.value);
+          bus.cpuWrite(addr, M.val);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -152,21 +151,21 @@ class CPU {
 
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
 
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
@@ -181,21 +180,21 @@ class CPU {
 
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
@@ -205,7 +204,7 @@ class CPU {
         if (_getInterruptDisableFlag() == 1) break;
 
         _pushStack16Bit(_regPC);
-        _pushStack(_regPS.value);
+        _pushStack(_regPS.val);
 
         _regPC = bus.cpuRead16Bit(0xfffe);
         _setBreakCommandFlag(1);
@@ -213,14 +212,14 @@ class CPU {
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
-          extraBytes = M.value;
+          extraBytes = M.val;
           extraCycles++;
         }
         break;
@@ -261,7 +260,7 @@ class CPU {
 
       case Instr.DEC:
         M -= Int8(1);
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         _setZeroFlag(M.isZero());
         _setNegativeFlag(M.isNegative());
@@ -290,7 +289,7 @@ class CPU {
 
       case Instr.INC:
         M += Int8(1);
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         _setZeroFlag(M.isZero());
         _setNegativeFlag(M.isNegative());
@@ -311,7 +310,7 @@ class CPU {
         break;
 
       case Instr.JMP:
-        _regPC = M.value;
+        _regPC = M.val;
         break;
 
       case Instr.JSR:
@@ -346,7 +345,7 @@ class CPU {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          bus.cpuWrite(addr, M.value);
+          bus.cpuWrite(addr, M.val);
         }
 
         _setCarryFlag(M.getBit(0));
@@ -368,11 +367,11 @@ class CPU {
         break;
 
       case Instr.PHA:
-        _pushStack(_regA.value);
+        _pushStack(_regA.val);
         break;
 
       case Instr.PHP:
-        _pushStack(_regPS.value);
+        _pushStack(_regPS.val);
         break;
 
       case Instr.PLA:
@@ -389,7 +388,7 @@ class CPU {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          bus.cpuWrite(addr, M.value);
+          bus.cpuWrite(addr, M.val);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -403,7 +402,7 @@ class CPU {
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
         } else {
-          bus.cpuWrite(addr, M.value);
+          bus.cpuWrite(addr, M.val);
         }
 
         _setCarryFlag(M.getBit(7));
@@ -444,15 +443,15 @@ class CPU {
         break;
 
       case Instr.STA:
-        bus.cpuWrite(addr, _regA.value);
+        bus.cpuWrite(addr, _regA.val);
         break;
 
       case Instr.STX:
-        bus.cpuWrite(addr, _regX.value);
+        bus.cpuWrite(addr, _regX.val);
         break;
 
       case Instr.STY:
-        bus.cpuWrite(addr, _regY.value);
+        bus.cpuWrite(addr, _regY.val);
         break;
 
       case Instr.TAX:
@@ -536,13 +535,13 @@ class CPU {
 
       case Instr.SAX:
         _regX &= _regA;
-        bus.cpuWrite(addr, _regX.value);
+        bus.cpuWrite(addr, _regX.val);
         break;
 
       case Instr.DCP:
         // DEC
         M -= Int8(1);
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // CMP
         _setCarryFlag(_regA >= M ? 1 : 0);
@@ -553,7 +552,7 @@ class CPU {
       case Instr.ISC:
         // INC
         M += Int8(1);
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // SBC
         _regA -= M + Int8(1 - _getCarryFlag());
@@ -567,7 +566,7 @@ class CPU {
       case Instr.RLA:
         // ROL
         M = (M << 1).setBit(0, _getCarryFlag());
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // AND
         _regA &= M;
@@ -580,7 +579,7 @@ class CPU {
       case Instr.RRA:
         // ROR
         M = (M >> 1).setBit(7, _getCarryFlag());
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // ADC
         _regA += M + Int8(_getCarryFlag());
@@ -594,7 +593,7 @@ class CPU {
       case Instr.SLO:
         // ASL
         M <<= 1;
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // ORA
         _regA |= M;
@@ -607,7 +606,7 @@ class CPU {
       case Instr.SRE:
         // LSR
         M >>= 1;
-        bus.cpuWrite(addr, M.value);
+        bus.cpuWrite(addr, M.val);
 
         // EOR
         _regA ^= M;
@@ -625,21 +624,6 @@ class CPU {
     return op.cycles + extraCycles;
   }
 
-  powerOn() {
-    reset();
-
-    _execute();
-  }
-
-  void reset() {
-    _regPC = 0x8000;
-    _regSP = Int8(0x1ff);
-    _regPS = Int8();
-    _regA = Int8();
-    _regX = Int8();
-    _regY = Int8();
-  }
-
   _execute() async {
     int opcode = bus.cpuRead(_regPC);
 
@@ -648,7 +632,7 @@ class CPU {
       return;
     }
 
-    Op op = findOp(opcode);
+    Op op = CPU_OPS[opcode];
     if (op == null) {
       throw ("${opcode.toHex()} is unknown instruction at rom address ${_regPC.toHex()}");
     }
@@ -663,72 +647,41 @@ class CPU {
     await Future.delayed(Duration(microseconds: (FREQUENCY * cycles).round()), _execute);
   }
 
-  // expose the cpuRead/write methods on memory
-  int cpuRead(int addr) => bus.cpuRead(addr);
-  void write(int addr, int value) => bus.cpuWrite(addr, value);
-
-  int getPC() => _regPC;
-  int getSP() => _regSP.value;
-  int getPS() => _regPS.value;
-  int getACC() => _regA.value;
-  int getX() => _regX.value;
-  int getY() => _regY.value;
+  int _getNmiFlag() => bus.cpuRead(0x2000).getBit(7);
 
   int _getCarryFlag() => _regPS.getBit(0);
   int _getZeroFlag() => _regPS.getBit(1);
   int _getInterruptDisableFlag() => _regPS.getBit(2);
-  int _getDecimalModeFlag() => _regPS.getBit(3);
-  int _getBreakCommandFlag() => _regPS.getBit(4);
+  // these is not used yet.
+  // int _getDecimalModeFlag() => _regPS.getBit(3);
+  // int _getBreakCommandFlag() => _regPS.getBit(4);
   int _getOverflowFlag() => _regPS.getBit(6);
   int _getNegativeFlag() => _regPS.getBit(7);
 
-  // I/O registers flags
-  int _getNmiFlag() => bus.cpuRead(0x2000).getBit(7);
-
-  void _setCarryFlag(int value) {
-    _regPS.setBit(0, value);
-  }
-
-  void _setZeroFlag(int value) {
-    _regPS.setBit(1, value);
-  }
-
-  void _setInterruptDisableFlag(int value) {
-    _regPS.setBit(2, value);
-  }
-
-  void _setDecimalModeFlag(int value) {
-    _regPS.setBit(3, value);
-  }
-
-  void _setBreakCommandFlag(int value) {
-    _regPS.setBit(4, value);
-  }
-
-  void _setOverflowFlag(int value) {
-    _regPS.setBit(6, value);
-  }
-
-  void _setNegativeFlag(int value) {
-    _regPS.setBit(7, value);
-  }
+  void _setCarryFlag(int value) => _regPS.setBit(0, value);
+  void _setZeroFlag(int value) => _regPS.setBit(1, value);
+  void _setInterruptDisableFlag(int value) => _regPS.setBit(2, value);
+  void _setDecimalModeFlag(int value) => _regPS.setBit(3, value);
+  void _setBreakCommandFlag(int value) => _regPS.setBit(4, value);
+  void _setOverflowFlag(int value) => _regPS.setBit(6, value);
+  void _setNegativeFlag(int value) => _regPS.setBit(7, value);
 
   // stack works top-down, see NESDoc page 12.
   _pushStack(int value) {
-    if (_regSP.value < 0x100) {
-      throw ("push stack failed. stack pointer ${_regSP.value.toHex()} is overflow stack area.");
+    if (_regSP.val < 0x100) {
+      throw ("push stack failed. stack pointer ${_regSP.val.toHex()} is overflow stack area.");
     }
 
-    bus.cpuWrite(_regSP.value, value);
+    bus.cpuWrite(_regSP.val, value);
     _regSP -= Int8(1);
   }
 
   int _popStack() {
-    if (_regSP.value >= 0x1ff) {
-      throw ("pop stack failed. stack pointer ${_regSP.value.toHex()} is at the start of stack area.");
+    if (_regSP.val >= 0x1ff) {
+      throw ("pop stack failed. stack pointer ${_regSP.val.toHex()} is at the start of stack area.");
     }
 
-    int value = bus.cpuRead(_regSP.value);
+    int value = bus.cpuRead(_regSP.val);
     _regSP += Int8(1);
 
     return value;
@@ -741,5 +694,26 @@ class CPU {
 
   int _popStack16Bit() {
     return _popStack() | (_popStack() << 2);
+  }
+
+  int getPC() => _regPC;
+  int getSP() => _regSP.val;
+  int getPS() => _regPS.val;
+  int getACC() => _regA.val;
+  int getX() => _regX.val;
+  int getY() => _regY.val;
+
+  powerOn() {
+    reset();
+    _execute();
+  }
+
+  void reset() {
+    _regPC = 0x8000;
+    _regSP = Int8(0x1ff);
+    _regPS = Int8();
+    _regA = Int8();
+    _regX = Int8();
+    _regY = Int8();
   }
 }

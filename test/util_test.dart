@@ -12,14 +12,14 @@ void main() {
   test("setBit", () {
     int num = int.parse("11111111", radix: 2);
 
-    assert(Int8(num).setBit(0, 0).value == int.parse("11111110", radix: 2));
-    assert(Int8(num).setBit(1, 0).value == int.parse("11111101", radix: 2));
-    assert(Int8(num).setBit(2, 0).value == int.parse("11111011", radix: 2));
-    assert(Int8(num).setBit(3, 0).value == int.parse("11110111", radix: 2));
-    assert(Int8(num).setBit(4, 0).value == int.parse("11101111", radix: 2));
-    assert(Int8(num).setBit(5, 0).value == int.parse("11011111", radix: 2));
-    assert(Int8(num).setBit(6, 0).value == int.parse("10111111", radix: 2));
-    assert(Int8(num).setBit(7, 0).value == int.parse("01111111", radix: 2));
+    assert(Int8(num).setBit(0, 0).val == int.parse("11111110", radix: 2));
+    assert(Int8(num).setBit(1, 0).val == int.parse("11111101", radix: 2));
+    assert(Int8(num).setBit(2, 0).val == int.parse("11111011", radix: 2));
+    assert(Int8(num).setBit(3, 0).val == int.parse("11110111", radix: 2));
+    assert(Int8(num).setBit(4, 0).val == int.parse("11101111", radix: 2));
+    assert(Int8(num).setBit(5, 0).val == int.parse("11011111", radix: 2));
+    assert(Int8(num).setBit(6, 0).val == int.parse("10111111", radix: 2));
+    assert(Int8(num).setBit(7, 0).val == int.parse("01111111", radix: 2));
   });
 
   test("getBit", () {

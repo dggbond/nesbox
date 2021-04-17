@@ -6,10 +6,10 @@ import 'package:flutter_nes/cartridge.dart';
 import "package:flutter_nes/cpu.dart";
 import "package:flutter_nes/ppu.dart";
 import "package:flutter_nes/bus.dart";
-import "package:flutter_nes/ram.dart";
+import "package:flutter_nes/memory.dart";
 
-class Emulator {
-  Emulator() {
+class NesEmulator {
+  NesEmulator() {
     cpu = CPU(bus);
     ppu = PPU(bus);
 
@@ -17,6 +17,7 @@ class Emulator {
     bus.ppu = ppu;
     bus.cpuRAM = cpuWorkRAM;
     bus.ppuRAM = ppuVideoRAM;
+    bus.ppuPalettes = ppuPalettes;
     bus.cardtridge = cardtridge;
   }
 
@@ -24,17 +25,22 @@ class Emulator {
 
   CPU cpu;
   PPU ppu;
-  RAM cpuWorkRAM = RAM(0x800);
-  RAM ppuVideoRAM = RAM(0x800);
+  Memory cpuWorkRAM = Memory(0x800);
+
+  // In most case PPU only use 2kb RAM and mirroring the name tables
+  // but when four-screen mirroring it will use an additional 2kb RAM.
+  // In this emulator, i ignore four-screen case, so i just need 2kb RAM.
+  Memory ppuVideoRAM = Memory(0x800);
+  Memory ppuPalettes = Memory(0x20);
   Cardtridge cardtridge = Cardtridge();
 
   // load nes rom data
   loadGame(Uint8List data) {
-    this.cardtridge.loadGame(data);
+    cardtridge.loadGame(data);
   }
 
   powerOn() {
     ppu.powerOn();
-    cpu.powerOn();
+    // cpu.powerOn();
   }
 }

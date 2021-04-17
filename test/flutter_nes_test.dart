@@ -6,8 +6,8 @@ import "dart:io" show Platform, File;
 
 void main() {
   test("nes emulator load nes file", () async {
-    final emulator = new Emulator();
-    String filepath = path.join(path.dirname(Platform.script.toFilePath()), "test/roms/Super_mario_brothers.nes");
+    final emulator = new NesEmulator();
+    String filepath = path.join(path.dirname(Platform.script.toFilePath()), "roms/Super_mario_brothers.nes");
 
     emulator.loadGame(File(filepath).readAsBytesSync());
     emulator.powerOn();

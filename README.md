@@ -27,6 +27,8 @@ I highly recommend that you write your own emulator, because it's so interesting
 blogs:
 - [yizhang82.dev nes blogs](https://yizhang82.dev/blog/nes/)
 - [I made an NES emulator. Here’s what I learned about the original Nintendo.](https://medium.com/@fogleman/i-made-an-nes-emulator-here-s-what-i-learned-about-the-original-nintendo-2e078c9b28fe)
+- [writing NES Emulator in Rust](https://bugzmanov.github.io/nes_ebook/chapter_1.html)
+- [NES Rendering](https://austinmorlan.com/posts/nes_rendering_overview/)
 
 nesfiles:
 - [nesfiles](https://www.nesfiles.com/)
