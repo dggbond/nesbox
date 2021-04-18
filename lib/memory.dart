@@ -10,4 +10,8 @@ class Memory {
   void write(int address, int value) {
     _mem[address] = value;
   }
+
+  void reset() {
+    _mem.fillRange(0, _mem.length, 0x00);
+  }
 }

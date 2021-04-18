@@ -9,10 +9,11 @@ extension IntUtil on int {
 
   int getBits(int start, int end) {
     int bits = 0;
-    Iterable.generate(end - start + 1).forEach((n) {
+
+    for (int n = 0; n < end - start + 1; n++) {
       bits <<= 1;
       bits |= this.getBit(end - n);
-    });
+    }
     return bits;
   }
 }
@@ -90,10 +91,11 @@ class Int8 {
 
   int getBits(int start, int end) {
     int bits = 0;
-    Iterable.generate(end - start + 1).forEach((n) {
+
+    for (int n = 0; n < end - start + 1; n++) {
       bits <<= 1;
       bits |= this.getBit(end - n);
-    });
+    }
     return bits;
   }
 
@@ -123,10 +125,6 @@ class Int8 {
 
   int isOverflow() {
     return _num >> 8 == 0 ? 0 : 1;
-  }
-
-  int join(int a, int b) {
-    return (a << 2 + b) & 0xff;
   }
 
   int get val {

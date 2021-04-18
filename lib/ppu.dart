@@ -1,6 +1,6 @@
-import 'dart:typed_data';
-
 import 'package:flutter_nes/bus.dart';
+import 'package:flutter_nes/cpu.dart';
+import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
 
 import 'package:flutter_nes/palette.dart';
@@ -42,8 +42,14 @@ class Frame {
 class PPU {
   PPU(this.bus);
 
+  // scanlines info refer: https://wiki.nesdev.com/w/index.php/PPU_rendering
+  static const int CYCLES_PER_SCANLINE = 341;
+  static const int SCANLINE_PER_FRAME = 262;
+  static const int VBLANK_START_AT = 241;
+
   BUS bus;
 
+  // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPU_registers
   // Controller ($2000) > write
   // 7  bit  0
   // ---- ----
@@ -78,6 +84,12 @@ class PPU {
   // +--------- Emphasize blue
   Int8 _regPPUMASK;
 
+  bool get greyscaleEnabled => _regPPUMASK.getBit(0) == 1;
+  bool get backgroundLeftRenderEnabled => _regPPUMASK.getBit(1) == 1;
+  bool get spritesLeftRenderEnabled => _regPPUMASK.getBit(2) == 1;
+  bool get backgroundRenderEnabled => _regPPUMASK.getBit(3) == 1;
+  bool get spritesRenderEnabled => _regPPUMASK.getBit(4) == 1;
+
   // Status ($2002) < read
   // 7  bit  0
   // ---- ----
@@ -105,62 +117,131 @@ class PPU {
   Int8 _regOAMADDR;
 
   // OAM data ($2004) <> read/write
-  Int8 _regOAMDATA;
+  // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
+  // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
+  Memory _OAM = Memory(0xff); //
+
+  int getOAMDATA() => _OAM.read(_regOAMADDR.val);
+  void setOAMDATA(int value) {
+    _OAM.write(_regOAMADDR.val, value);
+    _regOAMADDR += Int8(1);
+  }
 
   // Scroll ($2005) >> write x2
   // upper byte mean x scroll.
   // lower byte mean y scroll.
   int _regPPUSCROLL; // 16-bit
-  int _scrollWrite = 0; // 0: write PPUSCROLL upper byte, 1: write lower byte
+  int _scrollWrite = 0; // 0: write PPUSCROLL upper bits, 1: write lower bits
 
   // VRAM Address ($2006) >> write x2
   int _regPPUADDR; // 16-bit
-  int _addrWrite = 0; // 0: write PPUADDR upper byte, 1: write lower byte
+  int _addrWrite = 0; // 0: write PPUADDR upper bits, 1: write lower bits
+  int _regPPUTMPADDR; // VRAM temporary address, used in PPU
 
-  // VRAM temporary address
-  int _regPPUTMPADDR;
+  // see: https://wiki.nesdev.com/w/index.php/PPU_registers#The_PPUDATA_read_buffer_.28post-fetch.29
+  int _ppuDataBuffer;
 
   // Data ($2007) <> read/write
-  Int8 _regPPUDATA;
+  // this is the port that CPU read/write data via VRAM.
+  int getPPUDATA() {
+    int vramData = bus.ppuRead(_regPPUADDR);
+    int value = vramData;
+
+    if (_regPPUADDR % 0x4000 < 0x3f00) {
+      value = _ppuDataBuffer;
+      _ppuDataBuffer = vramData; // update data buffer with vram data
+    } else {
+      // when reading palttes, the buffer data is the mirrored nametable data that would appear "underneath" the palette.
+      _ppuDataBuffer = bus.ppuRead((_regPPUADDR % 0x4000) - 0x0100);
+    }
+
+    _increaseAddr();
+    return value;
+  }
+
+  void setPPUDATA(int value) {
+    bus.ppuWrite(_regPPUADDR, value);
+
+    _increaseAddr();
+  }
 
   // OAM DMA ($4014) > write
-  Int8 _regOMADMA;
+  void setOAMDMA(int value) {
+    int page = value << 8;
 
-  // the scan line numbers;
+    for (int i = 0; i < 0xff; i++) {
+      _OAM.write(i, bus.cpuRead(page | i));
+    }
+
+    bus.cpu.dmaCycles = 514;
+  }
+
   int scanLine = -1;
   int cycles = 0;
+  int frames = 0;
 
-  void _scanline() {}
+  Frame frame = Frame();
 
-  void _renderPixel() {}
+  int get _nameTableAddress => {
+        0: 0x2000,
+        1: 0x2400,
+        2: 0x2800,
+        3: 0x2c00,
+      }[_regPPUCTRL.getBits(0, 1)];
 
-  void _fetchNameTable() {
-    int nameTable = bus.ppuRead(_regPPUADDR);
+  int get _attributeTableAddress => _nameTableAddress + 0x3c0;
+  int get _patternTableAddress => {
+        0: 0x0000,
+        1: 0x1000,
+      }[_regPPUCTRL.getBit(4)];
+
+  tick() {
+    cycles++;
+    // if current cycles is greater than a scanline required, enter to next scanline
+    if (cycles > CYCLES_PER_SCANLINE) {
+      cycles -= CYCLES_PER_SCANLINE;
+      scanLine++;
+
+      if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
+        scanLine = -1;
+        cycles = 0;
+        _regPPUSTATUS.setBit(7, 0);
+        return;
+      }
+
+      // one Frame is completed.
+      if (scanLine >= SCANLINE_PER_FRAME) {
+        scanLine = 0;
+        frames++;
+        _regPPUSTATUS.setBit(7, 0);
+      }
+
+      if (scanLine == VBLANK_START_AT) {
+        // trigger a NMI interrupt
+        if (_regPPUCTRL.getBit(7) == 1) {
+          _regPPUSTATUS.setBit(7, 1);
+        }
+      }
+
+      // OAMADDR is set to 0 during each of ticks 257-320
+      if (cycles >= 257 && cycles <= 320) {
+        _regOAMADDR = Int8(0);
+      }
+    }
   }
 
-  Frame renderTiles() {
-    Frame frame = Frame();
-
-    for (int i = 0; i < 0x200; i++) {
-      _renderTile(i, frame);
-    }
-    return frame;
+  _renderPixel() {
+    int x = cycles, y = scanLine;
   }
 
-  void _renderTile(int tileNumber, Frame frame) {
-    var tile = bus.ppuReadBank(tileNumber * 0x10, 0x10);
-    int originX = 0, originY = 0;
-
-    // background tile
-    if (tileNumber >= 0x100) {
-      originX = 16 * 8;
-      originY = -16 * 8;
-    }
+  // render one tile to frame.
+  void _renderTile(Frame frame, int address, int offsetX, int offsetY) {
+    var tile = bus.ppuReadBank(_patternTableAddress + address, 0x10);
 
     for (int y = 0; y < 8; y++) {
       for (int x = 7; x >= 0; x--) {
         int paletteEntry = tile[y + 8].getBit(x) << 1 | tile[y].getBit(x);
-        frame.setPixel(originX + (tileNumber % 16) * 8 + (7 - x), originY + (tileNumber / 16).floor() * 8 + y, _testPalette(paletteEntry));
+        frame.setPixel(offsetX + (7 - x), offsetY + y, _testPalette(paletteEntry));
       }
     }
   }
@@ -192,21 +273,12 @@ class PPU {
     return _regPPUSTATUS.val;
   }
 
-  int getOAMDATA() => _regOAMDATA.val;
-  int getPPUDATA() {
-    _regPPUDATA = Int8(bus.ppuRead(_regPPUADDR));
-
-    _increaseAddr();
-    return _regPPUDATA.val;
-  }
-
   void setPPUCTRL(int value) => _regPPUCTRL = Int8(value);
   void setPPUMASK(int value) => _regPPUMASK = Int8(value);
-  void settOAMADDR(int value) => _regOAMADDR = Int8(value);
-  void setOAMDATA(int value) => _regOAMDATA = Int8(value);
+  void setOAMADDR(int value) => _regOAMADDR = Int8(value);
   void setPPUSCROLL(int value) {
     if (_scrollWrite == 0) {
-      _regPPUADDR = value << 2;
+      _regPPUADDR = value << 4;
       _scrollWrite = 1;
     } else {
       _regPPUADDR |= value;
@@ -220,20 +292,13 @@ class PPU {
     }
 
     if (_addrWrite == 0) {
-      _regPPUADDR = value << 2;
+      _regPPUADDR = value << 4;
       _addrWrite = 1;
     } else {
       _regPPUADDR |= value;
       _addrWrite = 0;
     }
   }
-
-  void setPPUDATA(int value) {
-    _regPPUDATA = Int8(value);
-    _increaseAddr();
-  }
-
-  void setOMADMA(int value) => _regOMADMA = Int8(value);
 
   void powerOn() {
     _regPPUCTRL = Int8(0x00);
@@ -242,7 +307,6 @@ class PPU {
     _regOAMADDR = Int8(0x00);
     _regPPUSCROLL = 0x00;
     _regPPUADDR = 0x00;
-    _regPPUDATA = Int8(0x00);
   }
 
   void reset() {
@@ -251,7 +315,6 @@ class PPU {
     _regPPUSTATUS = Int8(_regPPUSTATUS.getBit(7) << 7);
     _regOAMADDR = Int8(0x00);
     _regPPUSCROLL = 0x00;
-    _regPPUDATA = Int8(0x00);
     // PPUADDR register is unchange
 
     _scrollWrite = 0;

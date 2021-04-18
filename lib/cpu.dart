@@ -12,7 +12,7 @@ class CPU {
 
   BUS bus;
 
-  static const double FREQUENCY = 1.789773; // how many microseconds take per cycle
+  static const double MICRO_SEC_PER_CYCLE = 1 / 1.789773; // how many microseconds take per cycle
 
   // this is registers
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
@@ -23,17 +23,23 @@ class CPU {
   Int8 _regX; // Index register, used for indexed addressing mode
   Int8 _regY; // Index register
 
+  int dmaCycles = 0;
+
   // execute one instruction
-  emulate(Op op, List<int> nextBytes) {
+  int emulate(Op op, List<int> nextBytes) {
     if (_getNmiFlag() == 1) {
       _pushStack16Bit(_regPC);
       _pushStack(_regPS.val);
+
+      // Set the interrupt disable flag to prevent further interrupts.
+      _setInterruptDisableFlag(1);
 
       _regPC = bus.cpuRead16Bit(0xfffa);
       return 7;
     }
 
-    print("running: ${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
+    print(getStatusOfAllRegisters());
+    print("${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
 
     int addr = 0; // memory address will used in operator instruction.
     Int8 M = Int8(); // the .value in memory address of addr
@@ -207,6 +213,7 @@ class CPU {
         _pushStack(_regPS.val);
 
         _regPC = bus.cpuRead16Bit(0xfffe);
+        _setInterruptDisableFlag(1);
         _setBreakCommandFlag(1);
         break;
 
@@ -624,12 +631,11 @@ class CPU {
     return op.cycles + extraCycles;
   }
 
-  _execute() async {
+  int tick() {
     int opcode = bus.cpuRead(_regPC);
 
     if (opcode == null) {
-      print("can't find instruction from opcode: $opcode");
-      return;
+      throw ("can't find instruction from opcode: $opcode");
     }
 
     Op op = CPU_OPS[opcode];
@@ -638,24 +644,34 @@ class CPU {
     }
 
     Uint8List nextBytes = Uint8List(op.bytes - 1);
-    Iterable.generate(op.bytes - 1).forEach((n) {
+
+    for (int n = 0; n < op.bytes - 1; n++) {
       nextBytes[n] = bus.cpuRead(_regPC + n + 1);
-    });
+    }
 
-    int cycles = emulate(op, nextBytes);
-
-    await Future.delayed(Duration(microseconds: (FREQUENCY * cycles).round()), _execute);
+    return emulate(op, nextBytes);
   }
 
-  // @TODO: implement NMI interrupt
-  int _getNmiFlag() => 0;
+  String getStatusOfAllRegisters() {
+    return "C:${_getCarryFlag()}" +
+        " Z:${_getZeroFlag()}" +
+        " I:${_getInterruptDisableFlag()}" +
+        " D:${_getDecimalModeFlag()}" +
+        " B:${_getBreakCommandFlag()}" +
+        " O:${_getOverflowFlag()}" +
+        " N:${_getNegativeFlag()}" +
+        " PC:${_regPC.toHex()}" +
+        " SP:${_regPS.val.toHex()}";
+  }
+
+  // access the PPU STATUS register
+  int _getNmiFlag() => bus.cpuRead(0x2002).getBit(7);
 
   int _getCarryFlag() => _regPS.getBit(0);
   int _getZeroFlag() => _regPS.getBit(1);
   int _getInterruptDisableFlag() => _regPS.getBit(2);
-  // these is not used yet.
-  // int _getDecimalModeFlag() => _regPS.getBit(3);
-  // int _getBreakCommandFlag() => _regPS.getBit(4);
+  int _getDecimalModeFlag() => _regPS.getBit(3);
+  int _getBreakCommandFlag() => _regPS.getBit(4);
   int _getOverflowFlag() => _regPS.getBit(6);
   int _getNegativeFlag() => _regPS.getBit(7);
 
@@ -669,20 +685,20 @@ class CPU {
 
   // stack works top-down, see NESDoc page 12.
   _pushStack(int value) {
-    if (_regSP.val < 0x100) {
+    if (_regSP.val < 0) {
       throw ("push stack failed. stack pointer ${_regSP.val.toHex()} is overflow stack area.");
     }
 
-    bus.cpuWrite(_regSP.val, value);
+    bus.cpuWrite(0x100 + _regSP.val, value);
     _regSP -= Int8(1);
   }
 
   int _popStack() {
-    if (_regSP.val >= 0x1ff) {
+    if (_regSP.val > 0xff) {
       throw ("pop stack failed. stack pointer ${_regSP.val.toHex()} is at the start of stack area.");
     }
 
-    int value = bus.cpuRead(_regSP.val);
+    int value = bus.cpuRead(0x100 + _regSP.val);
     _regSP += Int8(1);
 
     return value;
@@ -706,12 +722,11 @@ class CPU {
 
   powerOn() {
     reset();
-    _execute();
   }
 
   void reset() {
     _regPC = 0x8000;
-    _regSP = Int8(0x1ff);
+    _regSP = Int8(0xff);
     _regPS = Int8();
     _regA = Int8();
     _regX = Int8();
