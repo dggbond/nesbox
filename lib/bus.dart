@@ -72,7 +72,7 @@ class BUS {
       if (address == 0x2000) return ppu.setPPUCTRL(value);
       if (address == 0x2001) return ppu.setPPUMASK(value);
       if (address == 0x2002) throw ("CPU can not write PPUSTATUS register");
-      if (address == 0x2003) return ppu.settOAMADDR(value);
+      if (address == 0x2003) return ppu.setOAMADDR(value);
       if (address == 0x2004) return ppu.setOAMDATA(value);
       if (address == 0x2005) return ppu.setPPUSCROLL(value);
       if (address == 0x2006) return ppu.setPPUADDR(value);
@@ -86,7 +86,7 @@ class BUS {
 
     // APU and joypad registers and ppu 0x4014;
     if (address < 4020) {
-      if (address == 0x4014) return ppu.setOMADMA(value);
+      if (address == 0x4014) return ppu.setOAMDMA(value);
     }
 
     // Expansion ROM
@@ -162,7 +162,12 @@ class BUS {
   }
 
   Uint8List ppuReadBank(int address, int bankSize) {
-    return Uint8List.fromList(Iterable.generate(bankSize).map((i) => ppuRead(address + i)).toList());
+    var data = Uint8List(bankSize);
+    for (int i = 0; i < bankSize; i++) {
+      data[i] = ppuRead(address + i);
+    }
+
+    return data;
   }
 
   void ppuWrite(int address, int value) {

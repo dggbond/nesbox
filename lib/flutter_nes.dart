@@ -39,8 +39,38 @@ class NesEmulator {
     cardtridge.loadGame(data);
   }
 
+  tick() {
+    int cycles = cpu.tick();
+
+    if (cpu.dmaCycles != 0) {
+      cycles = cpu.dmaCycles;
+    }
+
+    for (int i = cycles * 3; i >= 0; i--) {
+      ppu.tick();
+    }
+
+    // clear DMA cycles;
+    cpu.dmaCycles = 0;
+
+    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round()), tick)
+      .catchError((err) {
+        print(err);
+      });
+  }
+
   powerOn() {
-    ppu.powerOn();
     cpu.powerOn();
+    ppu.powerOn();
+
+    tick();
+  }
+
+  reset() {
+    cpu.reset();
+    ppu.reset();
+    cpuWorkRAM.reset();
+    ppuVideoRAM.reset();
+    ppuPalettes.reset();
   }
 }
