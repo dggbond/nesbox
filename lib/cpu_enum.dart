@@ -426,5 +426,12 @@ const Map<int, Op> CPU_OPS = {
   0xdc: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
   0xfc: Op(Instr.IGN, AddrMode.AbsoluteX, 2, 4), // cycles +1 if page crossed
   0x04: Op(Instr.IGN, AddrMode.ZeroPage, 2, 3),
+  0x44: Op(Instr.IGN, AddrMode.ZeroPage, 2, 3),
+  0x64: Op(Instr.IGN, AddrMode.ZeroPage, 2, 3),
   0x14: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
+  0x34: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
+  0x54: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
+  0x74: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
+  0xd4: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
+  0xf4: Op(Instr.IGN, AddrMode.ZeroPageX, 2, 4),
 };

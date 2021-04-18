@@ -1,5 +1,4 @@
 import 'package:flutter_nes/bus.dart';
-import 'package:flutter_nes/cpu.dart';
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
 
@@ -42,9 +41,9 @@ class Frame {
 class PPU {
   PPU(this.bus);
 
-  // scanlines info refer: https://wiki.nesdev.com/w/index.php/PPU_rendering
   static const int CYCLES_PER_SCANLINE = 341;
   static const int SCANLINE_PER_FRAME = 262;
+  static const int POST_SCANLINE = 240;
   static const int VBLANK_START_AT = 241;
 
   BUS bus;
@@ -116,10 +115,10 @@ class PPU {
   // OAM(Object Attribute Memory) address ($2003) > write
   Int8 _regOAMADDR;
 
-  // OAM data ($2004) <> read/write
+  // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
-  Memory _OAM = Memory(0xff); //
+  Memory _OAM = Memory(0xff);
 
   int getOAMDATA() => _OAM.read(_regOAMADDR.val);
   void setOAMDATA(int value) {
@@ -173,12 +172,19 @@ class PPU {
       _OAM.write(i, bus.cpuRead(page | i));
     }
 
-    bus.cpu.dmaCycles = 514;
+    bus.cpu.costCycles = 514;
   }
 
   int scanLine = -1;
-  int cycles = 0;
+  int cycle = 0;
   int frames = 0;
+
+  int _nameTableByte = 0;
+  int _attribyteByte = 0;
+
+  bool get isScanLineVisible => scanLine >= 0 && scanLine < POST_SCANLINE;
+  bool get isScanLineVBlanking => scanLine >= VBLANK_START_AT;
+  bool get isCycleVisible => cycle >= 1 && cycle <= 256;
 
   Frame frame = Frame();
 
@@ -189,49 +195,92 @@ class PPU {
         3: 0x2c00,
       }[_regPPUCTRL.getBits(0, 1)];
 
-  int get _attributeTableAddress => _nameTableAddress + 0x3c0;
   int get _patternTableAddress => {
         0: 0x0000,
         1: 0x1000,
       }[_regPPUCTRL.getBit(4)];
 
+  _renderPixel() {
+    int x = cycle, y = scanLine;
+  }
+
+  _fetchNameTableByte() {
+    _nameTableByte = bus.ppuRead(_regPPUADDR);
+  }
+
+  _fetchAttributeByte() {
+    _attribyteByte = bus.ppuRead(_regPPUADDR + 0x3c0);
+  }
+
+  _fetchTileData() {}
+  _evaluateSprites() {}
+
   tick() {
-    cycles++;
-    // if current cycles is greater than a scanline required, enter to next scanline
-    if (cycles > CYCLES_PER_SCANLINE) {
-      cycles -= CYCLES_PER_SCANLINE;
-      scanLine++;
+    // every cycle behaivor is here: https://wiki.nesdev.com/w/index.php/PPU_rendering#Line-by-line_timing
 
-      if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
-        scanLine = -1;
-        cycles = 0;
-        _regPPUSTATUS.setBit(7, 0);
-        return;
-      }
+    if (backgroundRenderEnabled || spritesRenderEnabled) {
+      if (isCycleVisible && isScanLineVisible) {
+        _renderPixel();
 
-      // one Frame is completed.
-      if (scanLine >= SCANLINE_PER_FRAME) {
-        scanLine = 0;
-        frames++;
-        _regPPUSTATUS.setBit(7, 0);
-      }
-
-      if (scanLine == VBLANK_START_AT) {
-        // trigger a NMI interrupt
-        if (_regPPUCTRL.getBit(7) == 1) {
-          _regPPUSTATUS.setBit(7, 1);
+        if (cycle == 257) {
+          _evaluateSprites();
         }
       }
 
-      // OAMADDR is set to 0 during each of ticks 257-320
-      if (cycles >= 257 && cycles <= 320) {
-        _regOAMADDR = Int8(0);
+      if (cycle >= 1 && cycle <= 336) {
+        switch (cycle % 8) {
+          case 1:
+            _fetchNameTableByte();
+            break;
+          case 3:
+            _fetchAttributeByte();
+            break;
+          case 5:
+            _fetchTileData();
+            break;
+          case 7: // this case has done by last case.
+            break;
+        }
       }
     }
+
+    _updateCycles();
   }
 
-  _renderPixel() {
-    int x = cycles, y = scanLine;
+  _updateCycles() {
+    cycle++;
+
+    // if current cycles is greater than a scanline required, enter to next scanline
+    if (cycle > CYCLES_PER_SCANLINE) {
+      cycle -= CYCLES_PER_SCANLINE;
+      scanLine++;
+    }
+
+    if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
+      scanLine = -1;
+      cycle = 0;
+      _regPPUSTATUS.setBit(7, 0);
+    }
+
+    // one Frame is completed.
+    if (scanLine >= SCANLINE_PER_FRAME) {
+      scanLine = 0;
+      frames++;
+      _regPPUSTATUS.setBit(7, 0);
+    }
+
+    if (scanLine == VBLANK_START_AT) {
+      _regPPUSTATUS.setBit(7, 1);
+      // trigger a NMI interrupt
+      if (_regPPUCTRL.getBit(7) == 1) {
+        bus.cpu.handleNmiInterrupt();
+      }
+    }
+
+    // OAMADDR is set to 0 during each of ticks 257-320
+    if (cycle >= 257 && cycle <= 320) {
+      _regOAMADDR = Int8(0);
+    }
   }
 
   // render one tile to frame.

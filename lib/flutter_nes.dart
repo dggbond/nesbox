@@ -42,21 +42,21 @@ class NesEmulator {
   tick() {
     int cycles = cpu.tick();
 
-    if (cpu.dmaCycles != 0) {
-      cycles = cpu.dmaCycles;
+    if (cpu.costCycles != 0) {
+      cycles = cpu.costCycles;
     }
 
+    cpu.costCycles = 0;
     for (int i = cycles * 3; i >= 0; i--) {
       ppu.tick();
     }
 
-    // clear DMA cycles;
-    cpu.dmaCycles = 0;
+    cycles += cpu.costCycles;
+    cpu.costCycles = 0;
 
-    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round()), tick)
-      .catchError((err) {
-        print(err);
-      });
+    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round()), tick).catchError((err) {
+      print(err);
+    });
   }
 
   powerOn() {
