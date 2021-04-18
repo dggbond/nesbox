@@ -23,24 +23,10 @@ class CPU {
   Int8 _regX; // Index register, used for indexed addressing mode
   Int8 _regY; // Index register
 
-  int dmaCycles = 0;
+  int costCycles = 0;
 
   // execute one instruction
   int emulate(Op op, List<int> nextBytes) {
-    if (_getNmiFlag() == 1) {
-      _pushStack16Bit(_regPC);
-      _pushStack(_regPS.val);
-
-      // Set the interrupt disable flag to prevent further interrupts.
-      _setInterruptDisableFlag(1);
-
-      _regPC = bus.cpuRead16Bit(0xfffa);
-      return 7;
-    }
-
-    print(getStatusOfAllRegisters());
-    print("${enumToString(op.instr)} ${nextBytes.toHex().padRight(11, " ")}");
-
     int addr = 0; // memory address will used in operator instruction.
     Int8 M = Int8(); // the .value in memory address of addr
     int extraCycles = 0;
@@ -206,15 +192,7 @@ class CPU {
         break;
 
       case Instr.BRK:
-        // IRQ is ignored when interrupt disable flag is set.
-        if (_getInterruptDisableFlag() == 1) break;
-
-        _pushStack16Bit(_regPC);
-        _pushStack(_regPS.val);
-
-        _regPC = bus.cpuRead16Bit(0xfffe);
-        _setInterruptDisableFlag(1);
-        _setBreakCommandFlag(1);
+        handleIrqInterrupt();
         break;
 
       case Instr.BVC:
@@ -632,7 +610,7 @@ class CPU {
   }
 
   int tick() {
-    int opcode = bus.cpuRead(_regPC);
+    int opcode = bus.cpuRead(0x8000 + _regPC);
 
     if (opcode == null) {
       throw ("can't find instruction from opcode: $opcode");
@@ -664,8 +642,35 @@ class CPU {
         " SP:${_regPS.val.toHex()}";
   }
 
-  // access the PPU STATUS register
-  int _getNmiFlag() => bus.cpuRead(0x2002).getBit(7);
+  void handleIrqInterrupt() {
+    // IRQ is ignored when interrupt disable flag is set.
+    if (_getInterruptDisableFlag() == 1) return;
+
+    _pushStack16Bit(_regPC);
+    _pushStack(_regPS.val);
+
+    _regPC = bus.cpuRead16Bit(0xfffe);
+    _setInterruptDisableFlag(1);
+    _setBreakCommandFlag(1);
+  }
+
+  void handleNmiInterrupt() {
+    print("NMI interrupt occured.");
+    _pushStack16Bit(_regPC);
+    _pushStack(_regPS.val);
+
+    // Set the interrupt disable flag to prevent further interrupts.
+    _setInterruptDisableFlag(1);
+
+    _regPC = bus.cpuRead16Bit(0xfffa);
+    costCycles = 7;
+  }
+
+  // reset Interrupt
+  void reset() {
+    _regPC = bus.cpuRead16Bit(0xfffc);
+    costCycles = 7;
+  }
 
   int _getCarryFlag() => _regPS.getBit(0);
   int _getZeroFlag() => _regPS.getBit(1);
@@ -721,15 +726,12 @@ class CPU {
   int getY() => _regY.val;
 
   powerOn() {
-    reset();
-  }
-
-  void reset() {
-    _regPC = 0x8000;
     _regSP = Int8(0xff);
     _regPS = Int8();
     _regA = Int8();
     _regX = Int8();
     _regY = Int8();
+
+    reset();
   }
 }
