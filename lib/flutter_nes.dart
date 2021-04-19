@@ -34,6 +34,8 @@ class NesEmulator {
   Memory ppuPalettes = Memory(0x20);
   Cardtridge cardtridge = Cardtridge();
 
+  int _cpuSlowDownTimes = 1; // slow down cpu frequency, 1 mean no slow down
+
   // load nes rom data
   loadGame(Uint8List data) {
     cardtridge.loadGame(data);
@@ -54,7 +56,7 @@ class NesEmulator {
     cycles += cpu.costCycles;
     cpu.costCycles = 0;
 
-    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round()), tick).catchError((err) {
+    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round() * _cpuSlowDownTimes), tick).catchError((err) {
       print(err);
     });
   }
@@ -72,5 +74,9 @@ class NesEmulator {
     cpuWorkRAM.reset();
     ppuVideoRAM.reset();
     ppuPalettes.reset();
+  }
+
+  slowDownCpu(int times) {
+    _cpuSlowDownTimes = times;
   }
 }

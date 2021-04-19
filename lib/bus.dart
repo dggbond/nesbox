@@ -57,6 +57,7 @@ class BUS {
   }
 
   void cpuWrite(int address, int value) {
+    print("CPU write ${address.toHex()}: ${value.toHex()}");
     // write work RAM
     if (address < 0x800) {
       return cpuRAM.write(address, value);

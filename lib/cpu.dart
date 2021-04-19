@@ -627,6 +627,8 @@ class CPU {
       nextBytes[n] = bus.cpuRead(_regPC + n + 1);
     }
 
+    print("${getStatusOfAllRegisters()} ${enumToString(op.instr)} ${nextBytes.toHex()}");
+
     return emulate(op, nextBytes);
   }
 
@@ -726,12 +728,11 @@ class CPU {
   int getY() => _regY.val;
 
   powerOn() {
+    _regPC = 0;
     _regSP = Int8(0xff);
     _regPS = Int8();
     _regA = Int8();
     _regX = Int8();
     _regY = Int8();
-
-    reset();
   }
 }

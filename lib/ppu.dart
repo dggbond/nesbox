@@ -159,6 +159,7 @@ class PPU {
   }
 
   void setPPUDATA(int value) {
+    print("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex()} ");
     bus.ppuWrite(_regPPUADDR, value);
 
     _increaseAddr();
@@ -180,7 +181,8 @@ class PPU {
   int frames = 0;
 
   int _nameTableByte = 0;
-  int _attribyteByte = 0;
+  int _attribute2Bit = 0;
+  int _tile16Bit = 0;
 
   bool get isScanLineVisible => scanLine >= 0 && scanLine < POST_SCANLINE;
   bool get isScanLineVBlanking => scanLine >= VBLANK_START_AT;
@@ -188,7 +190,7 @@ class PPU {
 
   Frame frame = Frame();
 
-  int get _nameTableAddress => {
+  int get _nameTableBaseAddress => {
         0: 0x2000,
         1: 0x2400,
         2: 0x2800,
@@ -202,17 +204,36 @@ class PPU {
 
   _renderPixel() {
     int x = cycle, y = scanLine;
+
+    // this is background render
+    for (int i = 7; i >= 0; i--) {
+      int paletteEntry = bus.ppuRead(0x3f00 + _attribute2Bit << 2 | _tile16Bit.getBit(i + 8) << 1 | _tile16Bit.getBit(i));
+      frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
+    }
+
+    // @TODO sprites render
   }
 
   _fetchNameTableByte() {
-    _nameTableByte = bus.ppuRead(_regPPUADDR);
+    _nameTableByte = bus.ppuRead(_nameTableBaseAddress + _regPPUADDR & 0x0fff);
   }
 
   _fetchAttributeByte() {
-    _attribyteByte = bus.ppuRead(_regPPUADDR + 0x3c0);
+    int nameTableByteIndex = _regPPUADDR % 0x03c0;
+    int attributeAddress = _nameTableBaseAddress + 0x3c0 + (nameTableByteIndex / 0x10).floor();
+    int attributeByte = bus.ppuRead(attributeAddress);
+    int positionNum = ((nameTableByteIndex % 16) / 4).floor();
+
+    _attribute2Bit = (attributeByte >> positionNum * 2) & 0x0003; // 0b11
   }
 
-  _fetchTileData() {}
+  _fetchTileData() {
+    int lowerTileByte = bus.ppuRead(_patternTableAddress + _nameTableByte);
+    int upperTileByte = bus.ppuRead(_patternTableAddress + _nameTableByte + 0x08);
+
+    _tile16Bit = upperTileByte << 8 | lowerTileByte;
+  }
+
   _evaluateSprites() {}
 
   tick() {
@@ -284,25 +305,25 @@ class PPU {
   }
 
   // render one tile to frame.
-  void _renderTile(Frame frame, int address, int offsetX, int offsetY) {
-    var tile = bus.ppuReadBank(_patternTableAddress + address, 0x10);
+  // void _renderTile(Frame frame, int address, int offsetX, int offsetY) {
+  //   var tile = bus.ppuReadBank(_patternTableAddress + address, 0x10);
 
-    for (int y = 0; y < 8; y++) {
-      for (int x = 7; x >= 0; x--) {
-        int paletteEntry = tile[y + 8].getBit(x) << 1 | tile[y].getBit(x);
-        frame.setPixel(offsetX + (7 - x), offsetY + y, _testPalette(paletteEntry));
-      }
-    }
-  }
+  //   for (int y = 0; y < 8; y++) {
+  //     for (int x = 7; x >= 0; x--) {
+  //       int paletteEntry = tile[y + 8].getBit(x) << 1 | tile[y].getBit(x);
+  //       frame.setPixel(offsetX + (7 - x), offsetY + y, _testPalette(paletteEntry));
+  //     }
+  //   }
+  // }
 
-  int _testPalette(int entry) {
-    return {
-      0: NES_SYS_PALETTES[0x02],
-      1: NES_SYS_PALETTES[0x05],
-      2: NES_SYS_PALETTES[0x28],
-      3: NES_SYS_PALETTES[0x18],
-    }[entry];
-  }
+  // int _testPalette(int entry) {
+  //   return {
+  //     0: NES_SYS_PALETTES[0x02],
+  //     1: NES_SYS_PALETTES[0x05],
+  //     2: NES_SYS_PALETTES[0x28],
+  //     3: NES_SYS_PALETTES[0x18],
+  //   }[entry];
+  // }
 
   _increaseAddr() {
     if (_regPPUCTRL.getBit(3) == 1) {
