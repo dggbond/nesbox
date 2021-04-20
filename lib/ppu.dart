@@ -13,7 +13,7 @@ typedef FrameForEachPixelCallback(int x, int y, int color);
 
 class Frame {
   Frame() {
-    _pixels = List.generate(height, (n) => List.generate(width, (index) => NES_SYS_PALETTES[0x02]));
+    _pixels = List.generate(height, (n) => List.generate(width, (index) => 0x00));
   }
 
   List<List<int>> _pixels;
@@ -159,7 +159,7 @@ class PPU {
   }
 
   void setPPUDATA(int value) {
-    print("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex()} ");
+    debugLog("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex()} ");
     bus.ppuWrite(_regPPUADDR, value);
 
     _increaseAddr();
@@ -172,8 +172,6 @@ class PPU {
     for (int i = 0; i < 0xff; i++) {
       _OAM.write(i, bus.cpuRead(page | i));
     }
-
-    bus.cpu.costCycles = 514;
   }
 
   int scanLine = -1;
@@ -294,7 +292,7 @@ class PPU {
       _regPPUSTATUS.setBit(7, 1);
       // trigger a NMI interrupt
       if (_regPPUCTRL.getBit(7) == 1) {
-        bus.cpu.handleNmiInterrupt();
+        bus.cpu.triggerNmiInterrupt();
       }
     }
 
@@ -336,11 +334,12 @@ class PPU {
   // registers read/write is used for CPU
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
+    int val = _regPPUSTATUS.val;
     _scrollWrite = 0;
     _addrWrite = 0;
     _regPPUSTATUS.setBit(7, 0);
 
-    return _regPPUSTATUS.val;
+    return val;
   }
 
   void setPPUCTRL(int value) => _regPPUCTRL = Int8(value);
@@ -383,9 +382,8 @@ class PPU {
     _regPPUCTRL = Int8(0x00);
     _regPPUMASK = Int8(0x00);
     _regPPUSTATUS = Int8(_regPPUSTATUS.getBit(7) << 7);
-    _regOAMADDR = Int8(0x00);
     _regPPUSCROLL = 0x00;
-    // PPUADDR register is unchange
+    _ppuDataBuffer = 0x00;
 
     _scrollWrite = 0;
     _addrWrite = 0;

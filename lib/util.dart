@@ -1,6 +1,8 @@
+import "dart:io";
+
 extension IntUtil on int {
-  String toHex() {
-    return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(4, "0");
+  String toHex([int len = 4]) {
+    return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(len, "0");
   }
 
   int getBit(int n) {
@@ -143,9 +145,11 @@ bool isPageCrossed(int addr1, int addr2) {
 
 // bytes can be Uint8List | List<int>
 int to16Bit(dynamic bytes) {
-  return (bytes[1] << 2) | bytes[0] & 0xffff;
+  return (bytes[1] << 8) | bytes[0] & 0xffff;
 }
 
-String enumToString(dynamic value) {
-  return value.toString().split(".")[1];
+void debugLog(String message) {
+  if (Platform.environment.containsKey("NES_DEBUG")) {
+    print(message);
+  }
 }

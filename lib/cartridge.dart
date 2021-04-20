@@ -1,6 +1,7 @@
 import "dart:typed_data";
 
 import "package:flutter_nes/util.dart";
+import "package:flutter_nes/memory.dart";
 
 class Cardtridge {
   static const int PRG_BANK_SIZE = 0x4000;
@@ -11,6 +12,8 @@ class Cardtridge {
   Uint8List prgROM;
   Uint8List chrROM;
   Uint8List trainerROM;
+
+  Memory sRAM; // battery-backed PRG RAM, 8kb
 
   bool isNES2() {
     return rom.elementAt(7).getBits(1, 2) == 2;
@@ -40,11 +43,15 @@ class Cardtridge {
       trainerROM = data.sublist(0x0010, 0x0010 + TRAINER_SIZE);
     }
 
+    if (data.elementAt(6).getBit(1) == 1) {
+      sRAM = Memory(0x2000);
+    }
+
     prgROM = data.sublist(_prgStart, _prgStart + prgNum * PRG_BANK_SIZE);
     chrROM = data.sublist(_chrStart, _chrStart + chrNum * CHR_BANK_SIZE);
   }
 
   int readPRG(int address) => prgROM.elementAt(address);
   int readCHR(int address) => chrROM.elementAt(address);
-  void wirteCHR(int address, int value) => chrROM[address] = value;
+  void writeCHR(int address, int value) => chrROM[address] = value;
 }

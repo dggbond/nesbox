@@ -24,13 +24,13 @@ class BUS {
 
     // access PPU Registers
     if (address < 0x2008) {
-      if (address == 0x2000) throw ("CPU can not read PPUCTRL register in PPU");
-      if (address == 0x2001) throw ("CPU can not read PPUMASK register in PPU");
+      if (address == 0x2000) return 0;
+      if (address == 0x2001) return 0;
       if (address == 0x2002) return ppu.getPPUSTATUS();
-      if (address == 0x2003) throw ("CPU can not read OAMADDR register in PPU");
+      if (address == 0x2003) return 0;
       if (address == 0x2004) return ppu.getOAMDATA();
-      if (address == 0x2005) throw ("CPU can not read PPUSCROLL register in PPU");
-      if (address == 0x2006) throw ("CPU can not read PPUADDR register in PPU");
+      if (address == 0x2005) return 0;
+      if (address == 0x2006) return 0;
       if (address == 0x2007) return ppu.getPPUDATA();
     }
 
@@ -39,25 +39,33 @@ class BUS {
 
     // access APU and joypad registers and ppu 0x4014;
     if (address < 4020) {
-      if (address == 0x4014) throw ("CPU can not read OMADMA register in PPU");
+      if (address == 0x4014) return 0;
     }
 
     // Expansion ROM
-    if (address < 0x6000) {}
+    if (address < 0x6000) {
+      return 0;
+    }
 
     // SRAM
-    if (address < 0x8000) {}
+    if (address < 0x8000) {
+      if (cardtridge.sRAM != null) {
+        return cardtridge.sRAM.read(address - 0x6000);
+      } else {
+        return 0;
+      }
+    }
 
     // PRG ROM
     if (address < 0x10000) {
       return cardtridge.readPRG(address - 0x8000);
     }
 
-    throw ("cpu reading: address ${address.toHex()} is over memory map size.");
+    throw ("cpu reading: address ${address.toRadixString(16)} is over memory map size.");
   }
 
   void cpuWrite(int address, int value) {
-    print("CPU write ${address.toHex()}: ${value.toHex()}");
+    debugLog("CPU write ${value.toHex()} to address ${address.toHex()}");
     // write work RAM
     if (address < 0x800) {
       return cpuRAM.write(address, value);
@@ -87,25 +95,36 @@ class BUS {
 
     // APU and joypad registers and ppu 0x4014;
     if (address < 4020) {
-      if (address == 0x4014) return ppu.setOAMDMA(value);
+      if (address == 0x4014) {
+        ppu.setOAMDMA(value);
+        cpu.costCycles += 514;
+        return;
+      }
     }
 
     // Expansion ROM
-    if (address < 0x6000) {}
+    if (address < 0x6000) {
+      return;
+    }
 
     // SRAM
-    if (address < 0x8000) {}
+    if (address < 0x8000) {
+      if (cardtridge.sRAM != null) {
+        cardtridge.sRAM.write(address - 0x6000, value);
+      }
+      return;
+    }
 
     // PRG ROM
     if (address < 0x10000) {
       throw ("cpu writing: can't write PRG-ROM at address ${address.toHex()}.");
     }
 
-    throw ("cpu writing: address ${address.toHex()} is over memory map size.");
+    throw ("cpu writing: address ${address.toRadixString(16)} is over memory map size.");
   }
 
   int cpuRead16Bit(int address) {
-    return cpuRead(address + 1) << 2 & cpuRead(address);
+    return cpuRead(address + 1) << 2 | cpuRead(address);
   }
 
   int ppuRead(int address) {
@@ -173,7 +192,7 @@ class BUS {
 
   void ppuWrite(int address, int value) {
     // CHR-ROM or Pattern Tables
-    if (address < 0x2000) return cardtridge.wirteCHR(address, value);
+    if (address < 0x2000) return cardtridge.writeCHR(address, value);
 
     // NameTables (RAM)
     if (address < 0x3000) return ppuRAM.write(address - 0x2000, value);
