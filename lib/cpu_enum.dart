@@ -116,16 +116,8 @@ class Op {
   final int bytes;
   final int cycles;
 
-  toJSON() {
-    var encoder = new JsonEncoder.withIndent("  ");
-
-    return "op: " +
-        encoder.convert({
-          "instr   ": instr.toString(),
-          "addrMode": addrMode.toString(),
-          "bytes   ": bytes,
-          "cycles  ": cycles,
-        });
+  String get name {
+    return "${instr.toString().split(".")[1]}(${addrMode.toString().split(".")[1]})";
   }
 }
 
@@ -148,7 +140,7 @@ const Map<int, Op> CPU_OPS = {
   0x21: Op(Instr.AND, AddrMode.IndexedIndirect, 2, 6),
   0x31: Op(Instr.AND, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
-  0x0a: Op(Instr.ASL, AddrMode.Immediate, 1, 2),
+  0x0a: Op(Instr.ASL, AddrMode.Accumulator, 1, 2),
   0x06: Op(Instr.ASL, AddrMode.ZeroPage, 2, 5),
   0x16: Op(Instr.ASL, AddrMode.ZeroPageX, 2, 6),
   0x0e: Op(Instr.ASL, AddrMode.Absolute, 3, 6),
@@ -253,7 +245,7 @@ const Map<int, Op> CPU_OPS = {
   0xac: Op(Instr.LDY, AddrMode.Absolute, 3, 4),
   0xbc: Op(Instr.LDY, AddrMode.AbsoluteY, 3, 4), // cycles + 1 if page crossed
 
-  0x4a: Op(Instr.LSR, AddrMode.Immediate, 1, 2),
+  0x4a: Op(Instr.LSR, AddrMode.Accumulator, 1, 2),
   0x46: Op(Instr.LSR, AddrMode.ZeroPage, 2, 5),
   0x56: Op(Instr.LSR, AddrMode.ZeroPageX, 2, 6),
   0x4e: Op(Instr.LSR, AddrMode.Absolute, 3, 6),
@@ -284,13 +276,13 @@ const Map<int, Op> CPU_OPS = {
 
   0x28: Op(Instr.PLP, AddrMode.Implied, 1, 4),
 
-  0x2a: Op(Instr.ROL, AddrMode.Immediate, 1, 2),
+  0x2a: Op(Instr.ROL, AddrMode.Accumulator, 1, 2),
   0x26: Op(Instr.ROL, AddrMode.ZeroPage, 2, 5),
   0x36: Op(Instr.ROL, AddrMode.ZeroPageX, 2, 6),
   0x2e: Op(Instr.ROL, AddrMode.Absolute, 3, 6),
   0x3e: Op(Instr.ROL, AddrMode.AbsoluteX, 3, 7),
 
-  0x6a: Op(Instr.ROR, AddrMode.Immediate, 1, 2),
+  0x6a: Op(Instr.ROR, AddrMode.Accumulator, 1, 2),
   0x66: Op(Instr.ROR, AddrMode.ZeroPage, 2, 5),
   0x76: Op(Instr.ROR, AddrMode.ZeroPageX, 2, 6),
   0x6e: Op(Instr.ROR, AddrMode.Absolute, 3, 6),
