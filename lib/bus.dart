@@ -16,6 +16,10 @@ class BUS {
   Cardtridge cardtridge;
 
   int cpuRead(int address) {
+    if (address < 0x2000) {
+      debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex()} from ${address.toHex()}");
+    }
+
     // access work RAM
     if (address < 0x800) return cpuRAM.read(address);
 
@@ -124,7 +128,7 @@ class BUS {
   }
 
   int cpuRead16Bit(int address) {
-    return cpuRead(address + 1) << 2 | cpuRead(address);
+    return cpuRead(address + 1) << 8 | cpuRead(address);
   }
 
   int ppuRead(int address) {
