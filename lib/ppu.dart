@@ -1,7 +1,7 @@
 import 'package:flutter_nes/bus.dart';
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
-
+import 'package:flutter_nes/int8.dart';
 import 'package:flutter_nes/palette.dart';
 
 /* Frame
@@ -65,7 +65,7 @@ class PPU {
   // |+-------- PPU master/slave select
   // |          (0: read backdrop from EXT pins; 1: output color on EXT pins)
   // +--------- Generate an NMI at the start of the
-  //            vertical blanking inter.val (0: off; 1: on)
+  //            vertical blanking inter.toInt() (0: off; 1: on)
   Int8 _regPPUCTRL;
 
   // Mask ($2001) > write
@@ -120,9 +120,9 @@ class PPU {
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
   Memory _OAM = Memory(0xff);
 
-  int getOAMDATA() => _OAM.read(_regOAMADDR.val);
+  int getOAMDATA() => _OAM.read(_regOAMADDR.toInt());
   void setOAMDATA(int value) {
-    _OAM.write(_regOAMADDR.val, value);
+    _OAM.write(_regOAMADDR.toInt(), value);
     _regOAMADDR += Int8(1);
   }
 
@@ -334,7 +334,7 @@ class PPU {
   // registers read/write is used for CPU
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
-    int val = _regPPUSTATUS.val;
+    int val = _regPPUSTATUS.toInt();
     _scrollWrite = 0;
     _addrWrite = 0;
     _regPPUSTATUS.setBit(7, 0);
