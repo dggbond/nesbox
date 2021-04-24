@@ -15,19 +15,19 @@ there is no package published yet.
 
 ## TODO
 - [x] CPU
-- [x] PPU
-- [x] APU
-- [x] ROM file parser
-- [x] Controller in keyboard
-- [x] Picture render
+- [] PPU
+- [] APU
+- [] ROM file parser
+- [] Controller in keyboard
+- [] Picture render
 
 ## Features
-- [x] Basic nes emulator
-- [x] Game speed control (2x, 4x, 8x ...)
-- [x] Controller in handle
-- [x] Save/Load game progress
-- [x] Video record
-- [x] Multiple players from WIFI or bluetooth
+- [] Basic nes emulator
+- [] Game speed control (2x, 4x, 8x ...)
+- [] Controller in handle
+- [] Save/Load game progress
+- [] Video record
+- [] Multiple players from WIFI or bluetooth
 
 ## References
 - [NESDoc](http://nesdev.com/NESDoc.pdf)
