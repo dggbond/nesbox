@@ -38,6 +38,7 @@ extension IntListUtil on List<int> {
     return true;
   }
 }
+
 // one page is 8-bit size;
 bool isPageCrossed(int addr1, int addr2) {
   return addr1 & 0xff00 != addr2 & 0xff00;

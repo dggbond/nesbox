@@ -150,7 +150,7 @@ const Map<int, Op> CPU_OPS = {
 
   0xb0: Op(Instr.BCS, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0xf0: Op(Instr.BCS, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0xf0: Op(Instr.BEQ, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
 
   0x24: Op(Instr.BIT, AddrMode.ZeroPage, 2, 3),
   0x2c: Op(Instr.BIT, AddrMode.Absolute, 3, 4),

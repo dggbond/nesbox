@@ -132,6 +132,8 @@ class BUS {
   }
 
   int ppuRead(int address) {
+    debugLog("PPU read from address ${address.toHex()}");
+
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.readCHR(address);
 
@@ -190,11 +192,14 @@ class BUS {
     for (int i = 0; i < bankSize; i++) {
       data[i] = ppuRead(address + i);
     }
+    debugLog("PPU read bank ${data.toHex()} from address ${address.toHex()}");
 
     return data;
   }
 
   void ppuWrite(int address, int value) {
+    debugLog("PPU write ${value.toHex()} to address ${address.toHex()}");
+
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.writeCHR(address, value);
 
