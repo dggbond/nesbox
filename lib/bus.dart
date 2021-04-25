@@ -15,6 +15,8 @@ class BUS {
   Memory ppuPalettes;
   Cardtridge cardtridge;
 
+  int dmaCycles = 0;
+
   int cpuRead(int address) {
     if (address < 0x2000) {
       debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex()} from ${address.toHex()}");
@@ -101,7 +103,7 @@ class BUS {
     if (address < 4020) {
       if (address == 0x4014) {
         ppu.setOAMDMA(value);
-        cpu.costCycles += 514;
+        dmaCycles = 514;
         return;
       }
     }

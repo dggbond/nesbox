@@ -97,11 +97,11 @@ class PPU {
   // upper byte mean x scroll.
   // lower byte mean y scroll.
   int _regPPUSCROLL; // 16-bit
-  int _scrollWrite = 0; // 0: write PPUSCROLL upper bits, 1: write lower bits
+  int _scrollWriteToggle = 0; // 0: write PPUSCROLL upper bits, 1: write lower bits
 
   // VRAM Address ($2006) >> write x2
   int _regPPUADDR; // 16-bit
-  int _addrWrite = 0; // 0: write PPUADDR upper bits, 1: write lower bits
+  int _addrWriteToggle = 0; // 0: write PPUADDR upper bits, 1: write lower bits
   int _regPPUTMPADDR; // VRAM temporary address, used in PPU
 
   // see: https://wiki.nesdev.com/w/index.php/PPU_registers#The_PPUDATA_read_buffer_.28post-fetch.29
@@ -136,8 +136,9 @@ class PPU {
   void setOAMDMA(int value) {
     int page = value << 8;
 
+    int oamAddr = _regOAMADDR.toInt();
     for (int i = 0; i < 0xff; i++) {
-      _OAM.write(i, bus.cpuRead(page | i));
+      _OAM.write(oamAddr + i, bus.cpuRead(page + i));
     }
   }
 
@@ -155,18 +156,6 @@ class PPU {
 
   Frame frame = Frame();
 
-  int get _nameTableBaseAddress => {
-        0: 0x2000,
-        1: 0x2400,
-        2: 0x2800,
-        3: 0x2c00,
-      }[_regPPUCTRL.getBits(0, 1)];
-
-  int get _patternTableAddress => {
-        0: 0x0000,
-        1: 0x1000,
-      }[_regPPUCTRL.getBit(4)];
-
   _renderPixel() {
     int x = cycle, y = scanLine;
 
@@ -180,21 +169,21 @@ class PPU {
   }
 
   _fetchNameTableByte() {
-    _nameTableByte = bus.ppuRead(_nameTableBaseAddress + _regPPUADDR & 0x0fff);
+    _nameTableByte = bus.ppuRead(0x2000 + _regPPUADDR & 0x0fff);
   }
 
   _fetchAttributeByte() {
     int nameTableByteIndex = _regPPUADDR % 0x03c0;
-    int attributeAddress = _nameTableBaseAddress + 0x3c0 + (nameTableByteIndex / 0x10).floor();
+    int attributeAddress = 0x23c0 + (nameTableByteIndex / 0x10).floor();
     int attributeByte = bus.ppuRead(attributeAddress);
     int positionNum = ((nameTableByteIndex % 16) / 4).floor();
 
     _attribute2Bit = (attributeByte >> positionNum * 2) & 0x0003; // 0b11
   }
 
-  _fetchTileData() {
-    int lowerTileByte = bus.ppuRead(_patternTableAddress + _nameTableByte);
-    int upperTileByte = bus.ppuRead(_patternTableAddress + _nameTableByte + 0x08);
+  _fetchNameTableTileData() {
+    int lowerTileByte = bus.ppuRead(_nameTableByte);
+    int upperTileByte = bus.ppuRead(_nameTableByte + 0x08);
 
     _tile16Bit = upperTileByte << 8 | lowerTileByte;
   }
@@ -222,7 +211,7 @@ class PPU {
             _fetchAttributeByte();
             break;
           case 5:
-            _fetchTileData();
+            _fetchNameTableTileData();
             break;
           case 7: // this case has done by last case.
             break;
@@ -238,34 +227,37 @@ class PPU {
 
     // if current cycles is greater than a scanline required, enter to next scanline
     if (cycle > CYCLES_PER_SCANLINE) {
-      cycle -= CYCLES_PER_SCANLINE;
+      cycle = 0;
       scanLine++;
+      return;
+    }
+
+    // OAMADDR is set to 0 during each of ticks 257-320
+    if (cycle >= 257 && cycle <= 320) {
+      _regOAMADDR = Int8(0);
     }
 
     if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
       scanLine = -1;
       cycle = 0;
       _regPPUSTATUS.setBit(7, 0);
+      return;
     }
 
     // one Frame is completed.
-    if (scanLine >= SCANLINE_PER_FRAME) {
+    if (scanLine > SCANLINE_PER_FRAME) {
       scanLine = 0;
       frames++;
       _regPPUSTATUS.setBit(7, 0);
+      return;
     }
 
     if (scanLine == VBLANK_START_AT) {
       _regPPUSTATUS.setBit(7, 1);
       // trigger a NMI interrupt
       if (_regPPUCTRL.getBit(7) == 1) {
-        bus.cpu.nmiOccured = true;
+        bus.cpu.nmiOccurred = true;
       }
-    }
-
-    // OAMADDR is set to 0 during each of ticks 257-320
-    if (cycle >= 257 && cycle <= 320) {
-      _regOAMADDR = Int8(0);
     }
   }
 
@@ -302,8 +294,8 @@ class PPU {
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
     int val = _regPPUSTATUS.toInt();
-    _scrollWrite = 0;
-    _addrWrite = 0;
+    _scrollWriteToggle = 0;
+    _addrWriteToggle = 0;
     _regPPUSTATUS.setBit(7, 0);
 
     return val;
@@ -313,12 +305,12 @@ class PPU {
   void setPPUMASK(int value) => _regPPUMASK = Int8(value);
   void setOAMADDR(int value) => _regOAMADDR = Int8(value);
   void setPPUSCROLL(int value) {
-    if (_scrollWrite == 0) {
+    if (_scrollWriteToggle == 0) {
       _regPPUADDR = value << 4;
-      _scrollWrite = 1;
+      _scrollWriteToggle = 1;
     } else {
       _regPPUADDR |= value;
-      _scrollWrite = 0;
+      _scrollWriteToggle = 0;
     }
   }
 
@@ -327,19 +319,19 @@ class PPU {
       return;
     }
 
-    if (_addrWrite == 0) {
+    if (_addrWriteToggle == 0) {
       _regPPUADDR = value << 4;
-      _addrWrite = 1;
+      _addrWriteToggle = 1;
     } else {
       _regPPUADDR |= value;
-      _addrWrite = 0;
+      _addrWriteToggle = 0;
     }
   }
 
   void powerOn() {
     _regPPUCTRL = Int8(0x00);
     _regPPUMASK = Int8(0x00);
-    _regPPUSTATUS = Int8(0xa0); // 1010 0000
+    _regPPUSTATUS = Int8(0x00);
     _regOAMADDR = Int8(0x00);
     _regPPUSCROLL = 0x00;
     _regPPUADDR = 0x00;
@@ -352,7 +344,7 @@ class PPU {
     _regPPUSCROLL = 0x00;
     _ppuDataBuffer = 0x00;
 
-    _scrollWrite = 0;
-    _addrWrite = 0;
+    _scrollWriteToggle = 0;
+    _addrWriteToggle = 0;
   }
 }

@@ -23,24 +23,32 @@ class CPU {
   Int8 _regX; // Index register, used for indexed addressing mode
   Int8 _regY; // Index register
 
-  int costCycles = 0; // extra cycles cost when execute the instruction.
-  bool nmiOccured = false;
+  bool nmiOccurred = false;
+  bool irqOccurred = false;
 
   // execute one instruction
   int emulate(Op op, List<int> nextBytes) {
     int addr = 0; // memory address will used in operator instruction.
     Int8 M = Int8(); // the value in memory address of addr
+    int cycles = op.cycles;
     int nextPC = _regPC + op.bytes; // the target program counter then jump to.
 
-    if (nmiOccured) {
+    if (nmiOccurred) {
       _pushStack16Bit(_regPC);
       _pushStack(_regP.toInt());
 
       // Set the interrupt disable flag to prevent further interrupts.
       _setInterruptDisableFlag(1);
 
-      nextPC = bus.cpuRead16Bit(0xfffa);
-      costCycles += 7;
+      _regPC = bus.cpuRead16Bit(0xfffa);
+      nmiOccurred = false;
+
+      return 7;
+    }
+
+    if (irqOccurred) {
+      _handleIRQ();
+      return 7;
     }
 
     switch (op.addrMode) {
@@ -67,11 +75,19 @@ class CPU {
       case AddrMode.AbsoluteX:
         addr = to16Bit(nextBytes) + _regX.toInt();
         M = Int8(bus.cpuRead(addr));
+
+        if (isPageCrossed(addr, addr - _regX.toInt())) {
+          cycles++;
+        }
         break;
 
       case AddrMode.AbsoluteY:
         addr = to16Bit(nextBytes) + _regY.toInt();
         M = Int8(bus.cpuRead(addr));
+
+        if (isPageCrossed(addr, addr - _regY.toInt())) {
+          cycles++;
+        }
         break;
 
       case AddrMode.Indirect:
@@ -108,6 +124,10 @@ class CPU {
         int lowerByte = bus.cpuRead(nextBytes[0]);
         addr = to16Bit([lowerByte, upperByte]) + _regY.toInt();
         M = Int8(bus.cpuRead(addr));
+
+        if (isPageCrossed(addr, addr - _regY.toInt())) {
+          cycles++;
+        }
         break;
     }
 
@@ -149,7 +169,7 @@ class CPU {
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
 
         break;
@@ -157,14 +177,14 @@ class CPU {
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
@@ -179,47 +199,39 @@ class CPU {
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BRK:
-        // IRQ is ignored when interrupt disable flag is set.
-        if (_getInterruptDisableFlag() == 1) break;
-
-        _pushStack16Bit(_regPC);
-        _pushStack(_regP.toInt());
-
-        _regPC = bus.cpuRead16Bit(0xfffe);
-        _setInterruptDisableFlag(1);
-        _setBreakCommandFlag(1);
+        _handleIRQ();
         break;
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
           nextPC += addr;
-          costCycles++;
+          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
@@ -405,12 +417,12 @@ class CPU {
 
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = M;
+          _setZeroFlag(_regA.isZero());
         } else {
           bus.cpuWrite(addr, M.toInt());
         }
 
         _setCarryFlag(oldBit0);
-        _setZeroFlag(_regA.isZero());
         _setNegativeFlag(M.isNegative());
         break;
 
@@ -543,119 +555,45 @@ class CPU {
         break;
 
       case Instr.DCP:
-        // DEC
-        M -= Int8(1);
-        bus.cpuWrite(addr, M.toInt());
-
-        // CMP
-        _setCarryFlag(_regA >= M ? 1 : 0);
-        _setZeroFlag((_regA - M).isZero());
-        _setNegativeFlag((_regA - M).isNegative());
+        emulate(Op(Instr.DEC, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.CMP, op.addrMode, 0, 0), nextBytes);
         break;
 
       case Instr.ISC:
-        // INC
-        M += Int8(1);
-        bus.cpuWrite(addr, M.toInt());
-
-        // SBC
-        _regA -= M + Int8(1 - _getCarryFlag());
-
-        _setCarryFlag(_regA.isOverflow() == 1 ? 0 : 1);
-        _setZeroFlag(_regA.isZero());
-        _setOverflowFlag(_regA.isOverflow());
-        _setNegativeFlag(_regA.isNegative());
+        emulate(Op(Instr.INC, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.SBC, op.addrMode, 0, 0), nextBytes);
         break;
 
       case Instr.RLA:
-        // ROL
-        M = (M << 1).setBit(0, _getCarryFlag());
-
-        if (op.addrMode == AddrMode.Accumulator) {
-          _regA = M;
-        } else {
-          bus.cpuWrite(addr, M.toInt());
-        }
-
-        // AND
-        _regA &= M;
-
-        _setCarryFlag(M.getBit(7));
-        _setZeroFlag(_regA.isZero());
-        _setNegativeFlag(_regA.isNegative());
+        emulate(Op(Instr.ROL, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.AND, op.addrMode, 0, 0), nextBytes);
         break;
 
       case Instr.RRA:
-        // ROR
-        M = (M >> 1).setBit(7, _getCarryFlag());
-
-        if (op.addrMode == AddrMode.Accumulator) {
-          _regA = M;
-        } else {
-          bus.cpuWrite(addr, M.toInt());
-        }
-
-        // ADC
-        _regA += M + Int8(_getCarryFlag());
-
-        _setCarryFlag(_regA.isOverflow());
-        _setOverflowFlag(_regA.isOverflow());
-        _setZeroFlag(_regA.isZero());
-        _setNegativeFlag(_regA.isNegative());
+        emulate(Op(Instr.ROR, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.ADC, op.addrMode, 0, 0), nextBytes);
         break;
 
       case Instr.SLO:
-        // ASL
-        M <<= 1;
-
-        if (op.addrMode == AddrMode.Accumulator) {
-          _regA = M;
-        } else {
-          bus.cpuWrite(addr, M.toInt());
-        }
-
-        // ORA
-        _regA |= M;
-
-        _setCarryFlag(M.getBit(7));
-        _setZeroFlag(_regA.isZero());
-        _setNegativeFlag(_regA.isNegative());
+        emulate(Op(Instr.ASL, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.ORA, op.addrMode, 0, 0), nextBytes);
         break;
 
       case Instr.SRE:
-        // LSR
-        M >>= 1;
-
-        if (op.addrMode == AddrMode.Accumulator) {
-          _regA = M;
-        } else {
-          bus.cpuWrite(addr, M.toInt());
-        }
-
-        // EOR
-        _regA ^= M;
-
-        _setCarryFlag(M.getBit(0));
-        _setZeroFlag(_regA.isZero());
-        _setNegativeFlag(_regA.isNegative());
+        emulate(Op(Instr.LSR, op.addrMode, 0, 0), nextBytes);
+        emulate(Op(Instr.EOR, op.addrMode, 0, 0), nextBytes);
         break;
 
       default:
         throw ("cpu emulate: ${op.instr} is an unknown instruction.");
     }
 
-    if (isPageCrossed(_regPC, nextPC)) {
-      costCycles++;
-    }
-
     _regPC = nextPC & 0xffff;
 
-    int totalCycles = op.cycles + costCycles;
+    cycles += bus.dmaCycles;
+    bus.dmaCycles = 0;
 
-    // clear cost cycles;
-    costCycles = 0;
-
-    return totalCycles;
+    return cycles;
   }
 
   int tick() {
@@ -727,6 +665,20 @@ class CPU {
     return _popStack() | (_popStack() << 8);
   }
 
+  void _handleIRQ() {
+    // IRQ is ignored when interrupt disable flag is set.
+    if (_getInterruptDisableFlag() == 1) return;
+
+    _pushStack16Bit(_regPC);
+    _pushStack(_regP.toInt());
+
+    _regPC = bus.cpuRead16Bit(0xfffe);
+    _setInterruptDisableFlag(1);
+    _setBreakCommandFlag(1);
+
+    irqOccurred = false;
+  }
+
   void reset() {
     _regPC = bus.cpuRead16Bit(0xfffc);
     _regS = Int8(0xfd);
@@ -734,8 +686,6 @@ class CPU {
     _setInterruptDisableFlag(1);
 
     // TODO APU register reset
-
-    costCycles += 7;
   }
 
   // CPU power-up state see: https://wiki.nesdev.com/w/index.php/CPU_power_up_state
@@ -759,7 +709,7 @@ extension DebugExtension on CPU {
         " O:${_getOverflowFlag()}" +
         " N:${_getNegativeFlag()}" +
         " PC:${_regPC.toHex()}" +
-        " SP:${_regS.toHex()}" +
+        " S:${_regS.toHex()}" +
         " A:${_regA.toHex()}" +
         " X:${_regX.toHex()}" +
         " Y:${_regY.toHex()}";

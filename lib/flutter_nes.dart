@@ -48,9 +48,6 @@ class NesEmulator {
       ppu.tick();
     }
 
-    cycles += cpu.costCycles;
-    cpu.costCycles = 0;
-
     Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round() * _cpuSlowDownTimes), tick);
   }
 
