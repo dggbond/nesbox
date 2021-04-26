@@ -1,10 +1,6 @@
 # flutter_nes
 A nes emulator written in dart without dependencies.
 
-# Why I wrote this
-I write this project for fun and learn how nes emulator(hardwares) works.
-I highly recommend that you write your own emulator, because you can learn a lot from it.
-
 ## Demo App
 this dart package has **no other dependencies** at all, all of codes is written in the [`lib`](lib) folder.
 so you can't see the game graphics if you just only run this package. if you want to see the actual effect of this emulator.
