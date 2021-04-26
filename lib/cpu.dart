@@ -145,7 +145,7 @@ class CPU {
 
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
 
@@ -153,14 +153,14 @@ class CPU {
 
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
@@ -176,21 +176,21 @@ class CPU {
 
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
@@ -201,14 +201,14 @@ class CPU {
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
-          nextPC += addr;
+          nextPC += bus.cpuRead(addr);
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
@@ -595,7 +595,7 @@ class CPU {
       nextBytes[n] = bus.cpuRead(_regPC + n + 1);
     }
 
-    debugLog("${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex()}");
+    debugLog("${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex(2)}");
 
     return emulate(op);
   }
