@@ -1,7 +1,6 @@
 import 'package:flutter_nes/bus.dart';
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
-import 'package:flutter_nes/int8.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
@@ -32,8 +31,8 @@ class PPU {
   // |+-------- PPU master/slave select
   // |          (0: read backdrop from EXT pins; 1: output color on EXT pins)
   // +--------- Generate an NMI at the start of the
-  //            vertical blanking inter.toInt() (0: off; 1: on)
-  Int8 _regPPUCTRL;
+  //            vertical blanking inter.() (0: off; 1: on)
+  int _regPPUCTRL;
 
   // Mask ($2001) > write
   // 7  bit  0
@@ -48,7 +47,7 @@ class PPU {
   // ||+------- Emphasize red (green on PAL/Dendy)
   // |+-------- Emphasize green (red on PAL/Dendy)
   // +--------- Emphasize blue
-  Int8 _regPPUMASK;
+  int _regPPUMASK;
 
   bool get greyscaleEnabled => _regPPUMASK.getBit(0) == 1;
   bool get backgroundLeftRenderEnabled => _regPPUMASK.getBit(1) == 1;
@@ -77,20 +76,20 @@ class PPU {
   //            Set at dot 1 of line 241 (the line *after* the post-render
   //            line); cleared after reading $2002 and at dot 1 of the
   //            pre-render line.
-  Int8 _regPPUSTATUS;
+  int _regPPUSTATUS;
 
   // OAM(Object Attribute Memory) address ($2003) > write
-  Int8 _regOAMADDR;
+  int _regOAMADDR;
 
   // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
   Memory _OAM = Memory(0xff);
 
-  int getOAMDATA() => _OAM.read(_regOAMADDR.toInt());
+  int getOAMDATA() => _OAM.read(_regOAMADDR);
   void setOAMDATA(int value) {
-    _OAM.write(_regOAMADDR.toInt(), value);
-    _regOAMADDR += Int8(1);
+    _OAM.write(_regOAMADDR, value);
+    _regOAMADDR += 1;
   }
 
   // Scroll ($2005) >> write x2
@@ -126,7 +125,7 @@ class PPU {
   }
 
   void setPPUDATA(int value) {
-    debugLog("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex()} ");
+    debugLog("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex(2)} ");
     bus.ppuWrite(_regPPUADDR, value);
 
     _increaseAddr();
@@ -136,7 +135,7 @@ class PPU {
   void setOAMDMA(int value) {
     int page = value << 8;
 
-    int oamAddr = _regOAMADDR.toInt();
+    int oamAddr = _regOAMADDR;
     for (int i = 0; i < 0xff; i++) {
       _OAM.write(oamAddr + i, bus.cpuRead(page + i));
     }
@@ -234,13 +233,13 @@ class PPU {
 
     // OAMADDR is set to 0 during each of ticks 257-320
     if (cycle >= 257 && cycle <= 320) {
-      _regOAMADDR = Int8(0);
+      _regOAMADDR = 0;
     }
 
     if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
       scanLine = -1;
       cycle = 0;
-      _regPPUSTATUS.setBit(7, 0);
+      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
       return;
     }
 
@@ -248,12 +247,12 @@ class PPU {
     if (scanLine > SCANLINE_PER_FRAME) {
       scanLine = 0;
       frames++;
-      _regPPUSTATUS.setBit(7, 0);
+      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
       return;
     }
 
     if (scanLine == VBLANK_START_AT) {
-      _regPPUSTATUS.setBit(7, 1);
+      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 1);
       // trigger a NMI interrupt
       if (_regPPUCTRL.getBit(7) == 1) {
         bus.cpu.nmiOccurred = true;
@@ -293,17 +292,17 @@ class PPU {
   // registers read/write is used for CPU
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
-    int val = _regPPUSTATUS.toInt();
+    int val = _regPPUSTATUS;
     _scrollWriteToggle = 0;
     _addrWriteToggle = 0;
-    _regPPUSTATUS.setBit(7, 0);
+    _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
 
     return val;
   }
 
-  void setPPUCTRL(int value) => _regPPUCTRL = Int8(value);
-  void setPPUMASK(int value) => _regPPUMASK = Int8(value);
-  void setOAMADDR(int value) => _regOAMADDR = Int8(value);
+  void setPPUCTRL(int value) => _regPPUCTRL = value;
+  void setPPUMASK(int value) => _regPPUMASK = value;
+  void setOAMADDR(int value) => _regOAMADDR = value;
   void setPPUSCROLL(int value) {
     if (_scrollWriteToggle == 0) {
       _regPPUADDR = value << 4;
@@ -329,18 +328,18 @@ class PPU {
   }
 
   void powerOn() {
-    _regPPUCTRL = Int8(0x00);
-    _regPPUMASK = Int8(0x00);
-    _regPPUSTATUS = Int8(0x00);
-    _regOAMADDR = Int8(0x00);
+    _regPPUCTRL = 0x00;
+    _regPPUMASK = 0x00;
+    _regPPUSTATUS = 0xa0;
+    _regOAMADDR = 0x00;
     _regPPUSCROLL = 0x00;
     _regPPUADDR = 0x00;
   }
 
   void reset() {
-    _regPPUCTRL = Int8(0x00);
-    _regPPUMASK = Int8(0x00);
-    _regPPUSTATUS = Int8(_regPPUSTATUS.getBit(7) << 7);
+    _regPPUCTRL = 0x00;
+    _regPPUMASK = 0x00;
+    _regPPUSTATUS = _regPPUSTATUS.getBit(7) << 7;
     _regPPUSCROLL = 0x00;
     _ppuDataBuffer = 0x00;
 
