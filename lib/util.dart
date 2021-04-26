@@ -46,8 +46,8 @@ extension IntUtil on int {
 }
 
 extension IntListUtil on List<int> {
-  String toHex() {
-    return this.map((e) => e.toHex()).join(",");
+  String toHex([len = 4]) {
+    return this.map((e) => e.toHex(len)).join(",");
   }
 
   bool equalsTo(List<int> targetList) {
