@@ -121,7 +121,7 @@ class Op {
   }
 }
 
-const Map<int, Op> CPU_OPS = {
+const Map<int, Op> NES_CPU_OPS = {
   0x69: Op(Instr.ADC, AddrMode.Immediate, 2, 2),
   0x65: Op(Instr.ADC, AddrMode.ZeroPage, 2, 3),
   0x75: Op(Instr.ADC, AddrMode.ZeroPageX, 2, 4),

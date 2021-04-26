@@ -15,9 +15,11 @@ class BUS {
   Memory ppuPalettes;
   Cardtridge cardtridge;
 
+  int dmaCycles = 0;
+
   int cpuRead(int address) {
     if (address < 0x2000) {
-      debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex()} from ${address.toHex()}");
+      debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex(2)} from ${address.toHex()}");
     }
 
     // access work RAM
@@ -69,7 +71,7 @@ class BUS {
   }
 
   void cpuWrite(int address, int value) {
-    debugLog("CPU write ${value.toHex()} to address ${address.toHex()}");
+    debugLog("CPU write ${value.toHex(2)} to address ${address.toHex()}");
     // write work RAM
     if (address < 0x800) {
       return cpuRAM.write(address, value);
@@ -101,7 +103,7 @@ class BUS {
     if (address < 4020) {
       if (address == 0x4014) {
         ppu.setOAMDMA(value);
-        cpu.costCycles += 514;
+        dmaCycles = 514;
         return;
       }
     }
@@ -198,7 +200,7 @@ class BUS {
   }
 
   void ppuWrite(int address, int value) {
-    debugLog("PPU write ${value.toHex()} to address ${address.toHex()}");
+    debugLog("PPU write ${value.toHex(2)} to address ${address.toHex()}");
 
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.writeCHR(address, value);

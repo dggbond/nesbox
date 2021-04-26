@@ -6,7 +6,20 @@ extension IntUtil on int {
   }
 
   int getBit(int n) {
-    return (this >> n) & 0x01;
+    return (this >> n) & 1;
+  }
+
+  int setBit(int n, int value) {
+    int num = this;
+    if (value == 1) {
+      num |= 1 << n;
+    } else if (value == 0) {
+      num &= ~(1 << n);
+    } else {
+      throw ("value must be 0 or 1");
+    }
+
+    return num;
   }
 
   int getBits(int start, int end) {
@@ -17,6 +30,18 @@ extension IntUtil on int {
       bits |= this.getBit(end - n);
     }
     return bits;
+  }
+
+  int overflow8Bit() {
+    return this.abs() > 127 ? 1 : 0;
+  }
+
+  int getNegativeBit() {
+    return this.getBit(7);
+  }
+
+  int getZeroBit() {
+    return this == 0 ? 1 : 0;
   }
 }
 
@@ -42,11 +67,6 @@ extension IntListUtil on List<int> {
 // one page is 8-bit size;
 bool isPageCrossed(int addr1, int addr2) {
   return addr1 & 0xff00 != addr2 & 0xff00;
-}
-
-// bytes can be Uint8List | List<int>
-int to16Bit(dynamic bytes) {
-  return (bytes[1] << 8) | bytes[0] & 0xffff;
 }
 
 void debugLog(String message) {
