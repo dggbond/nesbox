@@ -1,4 +1,4 @@
-import "dart:io";
+import "dart:io" show Platform;
 
 extension IntUtil on int {
   String toHex([int len = 4]) {

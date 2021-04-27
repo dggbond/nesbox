@@ -31,6 +31,7 @@ class CPU {
     int nextPC = _regPC + op.bytes; // the target program counter then go.
 
     if (nmiOccurred) {
+      print("nmi occured");
       _pushStack16Bit(_regPC);
       _pushStack(_regP);
 
@@ -51,7 +52,7 @@ class CPU {
       return 7;
     }
 
-    int addr = -1;
+    int addr;
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
         addr = bus.cpuRead(_regPC + 1) % 0xff;
@@ -95,7 +96,9 @@ class CPU {
         break;
 
       case AddrMode.Relative:
-        addr = _regPC + 1;
+        int offset = bus.cpuRead(_regPC + 1);
+        // offset is a signed integer
+        addr = offset > 0x80 ? offset - 0x100 : offset;
         break;
 
       case AddrMode.IndexedIndirect:
@@ -145,7 +148,7 @@ class CPU {
 
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
 
@@ -153,14 +156,14 @@ class CPU {
 
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
@@ -176,39 +179,43 @@ class CPU {
 
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BRK:
-        _handleIRQ();
+        if (_getInterruptDisableFlag() == 1) {
+          break;
+        } else {
+          _handleIRQ();
+        }
         return cycles;
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
+          nextPC += addr;
           cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
         }
         break;
@@ -255,21 +262,21 @@ class CPU {
 
       case Instr.DEC:
         int M = bus.cpuRead(addr) - 1;
-        bus.cpuWrite(addr, M);
+        bus.cpuWrite(addr, M & 0xff);
 
         _setZeroFlag(M.getZeroBit());
         _setNegativeFlag(M.getNegativeBit());
         break;
 
       case Instr.DEX:
-        _regX -= 1;
+        _regX = (_regX - 1) & 0xff;
 
         _setZeroFlag(_regX.getZeroBit());
         _setNegativeFlag(_regX.getNegativeBit());
         break;
 
       case Instr.DEY:
-        _regY -= 1;
+        _regY = (_regY - 1) & 0xff;
 
         _setZeroFlag(_regY.getZeroBit());
         _setNegativeFlag(_regY.getNegativeBit());
@@ -284,21 +291,21 @@ class CPU {
 
       case Instr.INC:
         int M = bus.cpuRead(addr) + 1;
-        bus.cpuWrite(addr, M);
+        bus.cpuWrite(addr, M & 0xff);
 
         _setZeroFlag(M.getZeroBit());
         _setNegativeFlag(M.getNegativeBit());
         break;
 
       case Instr.INX:
-        _regX += 1;
+        _regX = (_regX + 1) & 0xff;
 
         _setZeroFlag(_regX.getZeroBit());
         _setNegativeFlag(_regX.getNegativeBit());
         break;
 
       case Instr.INY:
-        _regY += 1;
+        _regY = (_regY + 1) & 0xff;
 
         _setZeroFlag(_regY.getZeroBit());
         _setNegativeFlag(_regY.getNegativeBit());
@@ -310,6 +317,7 @@ class CPU {
 
       case Instr.JSR:
         _pushStack16Bit(_regPC - 1);
+        _pushStack(_regP);
         nextPC = addr;
         break;
 

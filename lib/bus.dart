@@ -26,7 +26,7 @@ class BUS {
     if (address < 0x800) return cpuRAM.read(address);
 
     // access work RAM mirrors
-    if (address < 0x2000) return cpuRAM.read(address % 0x800);
+    if (address < 0x2000) return cpuRead(address % 0x800);
 
     // access PPU Registers
     if (address < 0x2008) {
@@ -134,8 +134,6 @@ class BUS {
   }
 
   int ppuRead(int address) {
-    debugLog("PPU read from address ${address.toHex()}");
-
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.readCHR(address);
 
@@ -147,12 +145,12 @@ class BUS {
       if (cardtridge.mirroring == 0) {
         // mirroring to 0x2000 area
         if (address >= 0x2400 && address < 0x2800) {
-          return ppuRAM.read(0x2000 + address % 0x400);
+          return ppuRead(0x2000 + address % 0x400);
         }
 
         // mirroring to 0x2800 area
         if (address >= 0x2c00) {
-          return ppuRAM.read(0x2800 + address % 0x400);
+          return ppuRead(0x2800 + address % 0x400);
         }
       }
 
@@ -162,12 +160,12 @@ class BUS {
       if (cardtridge.mirroring == 1) {
         // mirroring to 0x2000 area
         if (address >= 0x2800 && address < 0x2c00) {
-          return ppuRAM.read(0x2000 + address % 0x400);
+          return ppuRead(0x2000 + address % 0x400);
         }
 
         // mirroring to 0x2800 area
         if (address >= 0x2c00) {
-          return ppuRAM.read(0x2400 + address % 0x400);
+          return ppuRead(0x2400 + address % 0x400);
         }
       }
 
