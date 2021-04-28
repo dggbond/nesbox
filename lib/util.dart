@@ -32,10 +32,6 @@ extension IntUtil on int {
     return bits;
   }
 
-  int overflow8Bit() {
-    return this.abs() > 127 ? 1 : 0;
-  }
-
   int getNegativeBit() {
     return this.getBit(7);
   }

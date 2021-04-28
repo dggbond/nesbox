@@ -18,27 +18,24 @@ class BUS {
   int dmaCycles = 0;
 
   int cpuRead(int address) {
+    address &= 0xffff;
+
     if (address < 0x2000) {
       debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex(2)} from ${address.toHex()}");
     }
 
-    // access work RAM
-    if (address < 0x800) return cpuRAM.read(address);
-
-    // access work RAM mirrors
-    if (address < 0x2000) return cpuRead(address % 0x800);
+    // [0x0000, 0x0800] is RAM, [0x0800, 0x02000] is mirrors
+    if (address < 0x2000) return cpuRAM.read(address % 0x800);
 
     // access PPU Registers
-    if (address < 0x2008) {
-      if (address == 0x2000) return 0;
-      if (address == 0x2001) return 0;
-      if (address == 0x2002) return ppu.getPPUSTATUS();
-      if (address == 0x2003) return 0;
-      if (address == 0x2004) return ppu.getOAMDATA();
-      if (address == 0x2005) return 0;
-      if (address == 0x2006) return 0;
-      if (address == 0x2007) return ppu.getPPUDATA();
-    }
+    if (address == 0x2000) throw ("CPU can not read PPUCTRL register");
+    if (address == 0x2001) throw ("CPU can not read PPUMASK register");
+    if (address == 0x2002) return ppu.getPPUSTATUS();
+    if (address == 0x2003) throw ("CPU can not read OMAADDR register");
+    if (address == 0x2004) return ppu.getOAMDATA();
+    if (address == 0x2005) throw ("CPU can not read PPUSCROLL register");
+    if (address == 0x2006) throw ("CPU can not read PPUADDR register");
+    if (address == 0x2007) return ppu.getPPUDATA();
 
     // access PPU Registers mirrors
     if (address < 0x4000) return cpuRead(0x2000 + address % 0x0008);
@@ -71,6 +68,8 @@ class BUS {
   }
 
   void cpuWrite(int address, int value) {
+    address &= 0xffff;
+
     debugLog("CPU write ${value.toHex(2)} to address ${address.toHex()}");
     // write work RAM
     if (address < 0x800) {
@@ -83,16 +82,14 @@ class BUS {
     }
 
     // access PPU Registers
-    if (address < 0x2008) {
-      if (address == 0x2000) return ppu.setPPUCTRL(value);
-      if (address == 0x2001) return ppu.setPPUMASK(value);
-      if (address == 0x2002) throw ("CPU can not write PPUSTATUS register");
-      if (address == 0x2003) return ppu.setOAMADDR(value);
-      if (address == 0x2004) return ppu.setOAMDATA(value);
-      if (address == 0x2005) return ppu.setPPUSCROLL(value);
-      if (address == 0x2006) return ppu.setPPUADDR(value);
-      if (address == 0x2007) return ppu.setPPUDATA(value);
-    }
+    if (address == 0x2000) return ppu.setPPUCTRL(value);
+    if (address == 0x2001) return ppu.setPPUMASK(value);
+    if (address == 0x2002) throw ("CPU can not write PPUSTATUS register");
+    if (address == 0x2003) return ppu.setOAMADDR(value);
+    if (address == 0x2004) return ppu.setOAMDATA(value);
+    if (address == 0x2005) return ppu.setPPUSCROLL(value);
+    if (address == 0x2006) return ppu.setPPUADDR(value);
+    if (address == 0x2007) return ppu.setPPUDATA(value);
 
     // access PPU Registers mirrors
     if (address < 0x4000) {
@@ -134,6 +131,8 @@ class BUS {
   }
 
   int ppuRead(int address) {
+    address &= 0xffff;
+
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.readCHR(address);
 
@@ -188,6 +187,8 @@ class BUS {
   }
 
   Uint8List ppuReadBank(int address, int bankSize) {
+    address &= 0xffff;
+
     var data = Uint8List(bankSize);
     for (int i = 0; i < bankSize; i++) {
       data[i] = ppuRead(address + i);
@@ -198,6 +199,8 @@ class BUS {
   }
 
   void ppuWrite(int address, int value) {
+    address &= 0xffff;
+
     debugLog("PPU write ${value.toHex(2)} to address ${address.toHex()}");
 
     // CHR-ROM or Pattern Tables

@@ -4,13 +4,13 @@ import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
+const int CYCLES_PER_SCANLINE = 341;
+const int SCANLINE_PER_FRAME = 262;
+const int POST_SCANLINE = 240;
+const int VBLANK_START_AT = 241;
+
 class PPU {
   PPU(this.bus);
-
-  static const int CYCLES_PER_SCANLINE = 341;
-  static const int SCANLINE_PER_FRAME = 262;
-  static const int POST_SCANLINE = 240;
-  static const int VBLANK_START_AT = 241;
 
   BUS bus;
 
@@ -170,7 +170,8 @@ class PPU {
   }
 
   _fetchNameTableByte() {
-    _nameTableByte = bus.ppuRead(0x2000 + _regPPUADDR & 0x0fff);
+    int addr = 0x2000 | (_regPPUADDR & 0x0fff);
+    _nameTableByte = bus.ppuRead(addr);
   }
 
   _fetchAttributeByte() {
