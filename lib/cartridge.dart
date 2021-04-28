@@ -3,52 +3,60 @@ import "dart:typed_data";
 import "package:flutter_nes/util.dart";
 import "package:flutter_nes/memory.dart";
 
-class Cardtridge {
-  static const int PRG_BANK_SIZE = 0x4000;
-  static const int CHR_BANK_SIZE = 0x2000;
-  static const int TRAINER_SIZE = 0x0200;
+const int PRG_BANK_SIZE = 0x4000;
+const int CHR_BANK_SIZE = 0x2000;
+const int TRAINER_SIZE = 0x0200;
 
-  Uint8List rom; // ines rom file data
+class Cardtridge {
   Uint8List prgROM;
   Uint8List chrROM;
   Uint8List trainerROM;
 
   Memory sRAM; // battery-backed PRG RAM, 8kb
 
-  bool isNES2() {
-    return rom.elementAt(7).getBits(1, 2) == 2;
-  }
-
-  int get prgNum => rom.elementAt(4);
-  int get chrNum => rom.elementAt(5);
-  int get trainerNum => rom.elementAt(6).getBit(2);
+  bool isNES2;
+  int mapperNumber;
 
   // 0: horizontal (vertical arrangement) (CIRAM A10 = PPU A11)
   // 1: vertical (horizontal arrangement) (CIRAM A10 = PPU A10)
-  int get mirroring => rom.elementAt(6).getBit(0);
+  int mirroring;
 
-  int get _prgStart => 0x10 + trainerNum * TRAINER_SIZE;
-  int get _chrStart => _prgStart + prgNum * PRG_BANK_SIZE;
-
-  loadGame(Uint8List data) {
+  load(Uint8List data) {
+    // parse INES header
     // see: https://wiki.nesdev.com/w/index.php/INES
-    // 0-3: Constant $4E $45 $53 $1A ("NES" followed by MS-DOS end-of-file)
+    // header[0-3]: Constant $4E $45 $53 $1A ("NES" followed by MS-DOS end-of-file)
     if (!data.sublist(0, 4).equalsTo([0x4e, 0x45, 0x53, 0x1a])) {
       throw ("the first 4 bytes not equals to the nes identify");
     }
 
-    rom = data;
+    // header[4]
+    int prgNum = data.elementAt(4);
 
-    if (trainerNum == 1) {
-      trainerROM = data.sublist(0x0010, 0x0010 + TRAINER_SIZE);
+    // header[5]
+    int chrNum = data.elementAt(5);
+
+    // header[6]
+    int flag6 = data.elementAt(6);
+
+    mirroring = flag6.getBit(0);
+    if (flag6.getBit(1) == 1) sRAM = Memory(0x2000);
+
+    // header[7]
+    int flag7 = data.elementAt(7);
+    isNES2 = flag7.getBits(1, 2) == 2;
+
+    mapperNumber = flag7.getBits(4, 7) << 4 | flag6.getBits(4, 7);
+
+    // after header
+    int index = 0x10;
+
+    if (flag6.getBit(2) == 1) {
+      // update the index when using += operator
+      trainerROM = data.sublist(index, index += TRAINER_SIZE);
     }
 
-    if (data.elementAt(6).getBit(1) == 1) {
-      sRAM = Memory(0x2000);
-    }
-
-    prgROM = data.sublist(_prgStart, _prgStart + prgNum * PRG_BANK_SIZE);
-    chrROM = data.sublist(_chrStart, _chrStart + chrNum * CHR_BANK_SIZE);
+    prgROM = data.sublist(index, index += prgNum * PRG_BANK_SIZE);
+    chrROM = data.sublist(index, index += chrNum * CHR_BANK_SIZE);
   }
 
   int readPRG(int address) => prgROM.elementAt(address);

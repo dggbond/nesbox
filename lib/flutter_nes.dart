@@ -8,6 +8,7 @@ import "package:flutter_nes/ppu.dart";
 import "package:flutter_nes/bus.dart";
 import "package:flutter_nes/memory.dart";
 
+// the Console
 class NesEmulator {
   NesEmulator() {
     cpu = CPU(bus);
@@ -34,28 +35,25 @@ class NesEmulator {
   Memory ppuPalettes = Memory(0x20);
   Cardtridge cardtridge = Cardtridge();
 
-  int _cpuSlowDownTimes = 1; // slow down cpu frequency, 1 mean no slow down
-
   // load nes rom data
-  loadGame(Uint8List data) {
-    cardtridge.loadGame(data);
-  }
+  loadGame(Uint8List data) => cardtridge.load(data);
 
-  tick() {
+  _tick() {
     int cycles = cpu.tick();
 
     for (int i = cycles * 3; i >= 0; i--) {
       ppu.tick();
     }
 
-    Future.delayed(Duration(microseconds: (CPU.MICRO_SEC_PER_CYCLE * cycles).round() * _cpuSlowDownTimes), tick);
+    int ms = (cycles / CPU_FREQUENCY * 1e6).round();
+    Future.delayed(Duration(microseconds: ms), _tick);
   }
 
   powerOn() {
     cpu.powerOn();
     ppu.powerOn();
 
-    tick();
+    _tick();
   }
 
   reset() {
@@ -64,9 +62,5 @@ class NesEmulator {
     cpuWorkRAM.reset();
     ppuVideoRAM.reset();
     ppuPalettes.reset();
-  }
-
-  slowDownCpu(int times) {
-    _cpuSlowDownTimes = times;
   }
 }

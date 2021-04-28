@@ -7,7 +7,7 @@ typedef FrameForEachPixelCallback(int x, int y, int color);
 
 class Frame {
   Frame() {
-    _pixels = List.generate(height, (n) => List.generate(width, (index) => 0xff8f0077));
+    _pixels = List.generate(height, (n) => List.generate(width, (index) => 0xffffffff));
   }
 
   List<List<int>> _pixels;

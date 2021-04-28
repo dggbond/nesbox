@@ -3,12 +3,12 @@ import "dart:typed_data";
 import "package:flutter_nes/util.dart";
 import 'package:flutter_nes/bus.dart';
 
-part "package:flutter_nes/cpu_enum.dart";
+part "package:flutter_nes/cpu_instructions.dart";
+
+const double CPU_FREQUENCY = 1789773; // Hz
 
 // emualtor for 6502 CPU
 class CPU {
-  static const double MICRO_SEC_PER_CYCLE = 1 / 1.789773; // how many microseconds take per cycle
-
   CPU(this.bus);
 
   BUS bus;
@@ -31,6 +31,7 @@ class CPU {
     int nextPC = _regPC + op.bytes; // the target program counter then go.
 
     if (nmiOccurred) {
+      print("nmi occured");
       _pushStack16Bit(_regPC);
       _pushStack(_regP);
 
@@ -38,20 +39,29 @@ class CPU {
       _setInterruptDisableFlag(1);
 
       _regPC = bus.cpuRead16Bit(0xfffa);
-      nmiOccurred = false;
 
       return 7;
     }
 
     if (irqOccurred) {
       // IRQ is ignored when interrupt disable flag is set.
-      if (_getInterruptDisableFlag() == 1) return 0;
+      if (_getInterruptDisableFlag() == 0) {
+        _pushStack16Bit(_regPC);
+        _pushStack(_regP);
 
-      _handleIRQ();
-      return 7;
+        _setInterruptDisableFlag(1);
+        _setBreakCommandFlag(1);
+
+        _regPC = bus.cpuRead16Bit(0xfffe);
+
+        return 7;
+      }
     }
 
-    int addr = -1;
+    nmiOccurred = false;
+    irqOccurred = false;
+
+    int addr;
     switch (op.addrMode) {
       case AddrMode.ZeroPage:
         addr = bus.cpuRead(_regPC + 1) % 0xff;
@@ -95,7 +105,9 @@ class CPU {
         break;
 
       case AddrMode.Relative:
-        addr = _regPC + 1;
+        int offset = bus.cpuRead(_regPC + 1);
+        // offset is a signed integer
+        addr = offset > 0x80 ? offset - 0x100 : offset;
         break;
 
       case AddrMode.IndexedIndirect:
@@ -111,14 +123,19 @@ class CPU {
 
     switch (op.instr) {
       case Instr.ADC:
-        _regA += bus.cpuRead(addr) + _getCarryFlag();
+        int M = bus.cpuRead(addr);
+        int result = _regA + M + _getCarryFlag();
 
-        _setCarryFlag(_regA.overflow8Bit());
-        _setOverflowFlag(_regA.overflow8Bit());
-        _setZeroFlag(_regA.getZeroBit());
-        _setNegativeFlag(_regA.getNegativeBit());
+        // overflow is basically negative + negative = positive
+        // postive + positive = negative
+        int overflow = (result ^ _regA) & (result ^ M) & 0x80;
 
-        _regA &= 0xff;
+        _setCarryFlag(result > 0xff ? 1 : 0);
+        _setOverflowFlag(overflow >> 7);
+        _setZeroFlag(result.getZeroBit());
+        _setNegativeFlag(result.getNegativeBit());
+
+        _regA = result & 0xff;
         break;
 
       case Instr.AND:
@@ -145,23 +162,23 @@ class CPU {
 
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
 
         break;
 
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
@@ -176,40 +193,48 @@ class CPU {
 
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
       case Instr.BRK:
-        _handleIRQ();
-        return cycles;
+        if (_getInterruptDisableFlag() == 0) {
+          _pushStack16Bit(_regPC + 1);
+          _pushStack(_regP);
+
+          _setInterruptDisableFlag(1);
+          _setBreakCommandFlag(1);
+
+          nextPC = bus.cpuRead16Bit(0xfffe);
+        }
+        break;
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += 1;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
-          nextPC += bus.cpuRead(addr);
-          cycles += isPageCrossed(nextPC, nextPC - addr) ? 2 : 1;
+          nextPC += addr;
+          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
         }
         break;
 
@@ -255,21 +280,21 @@ class CPU {
 
       case Instr.DEC:
         int M = bus.cpuRead(addr) - 1;
-        bus.cpuWrite(addr, M);
+        bus.cpuWrite(addr, M & 0xff);
 
         _setZeroFlag(M.getZeroBit());
         _setNegativeFlag(M.getNegativeBit());
         break;
 
       case Instr.DEX:
-        _regX -= 1;
+        _regX = (_regX - 1) & 0xff;
 
         _setZeroFlag(_regX.getZeroBit());
         _setNegativeFlag(_regX.getNegativeBit());
         break;
 
       case Instr.DEY:
-        _regY -= 1;
+        _regY = (_regY - 1) & 0xff;
 
         _setZeroFlag(_regY.getZeroBit());
         _setNegativeFlag(_regY.getNegativeBit());
@@ -284,21 +309,21 @@ class CPU {
 
       case Instr.INC:
         int M = bus.cpuRead(addr) + 1;
-        bus.cpuWrite(addr, M);
+        bus.cpuWrite(addr, M & 0xff);
 
         _setZeroFlag(M.getZeroBit());
         _setNegativeFlag(M.getNegativeBit());
         break;
 
       case Instr.INX:
-        _regX += 1;
+        _regX = (_regX + 1) & 0xff;
 
         _setZeroFlag(_regX.getZeroBit());
         _setNegativeFlag(_regX.getNegativeBit());
         break;
 
       case Instr.INY:
-        _regY += 1;
+        _regY = (_regY + 1) & 0xff;
 
         _setZeroFlag(_regY.getZeroBit());
         _setNegativeFlag(_regY.getNegativeBit());
@@ -310,6 +335,7 @@ class CPU {
 
       case Instr.JSR:
         _pushStack16Bit(_regPC - 1);
+        _pushStack(_regP);
         nextPC = addr;
         break;
 
@@ -424,14 +450,17 @@ class CPU {
         break;
 
       case Instr.SBC:
-        _regA -= bus.cpuRead(addr) + 1 - _getCarryFlag();
+        int M = bus.cpuRead(addr);
+        int result = _regA - M - (1 - _getCarryFlag());
 
-        _setCarryFlag(_regA.overflow8Bit());
-        _setZeroFlag(_regA.getZeroBit());
-        _setOverflowFlag(_regA.overflow8Bit());
-        _setNegativeFlag(_regA.getNegativeBit());
+        int overflow = (result ^ _regA) & (result ^ M) & 0x80;
 
-        _regA &= 0xff;
+        _setCarryFlag(result > 0xff ? 0 : 1);
+        _setZeroFlag(result.getZeroBit());
+        _setOverflowFlag(overflow >> 7);
+        _setNegativeFlag(result.getNegativeBit());
+
+        _regA = result & 0xff;
         break;
 
       case Instr.SEC:
@@ -592,7 +621,7 @@ class CPU {
     Uint8List nextBytes = Uint8List(op.bytes - 1);
 
     for (int n = 0; n < op.bytes - 1; n++) {
-      nextBytes[n] = bus.cpuRead(_regPC + n + 1);
+      nextBytes[n] = bus.cardtridge.readPRG(_regPC + n + 1 - 0x8000);
     }
 
     debugLog("${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex(2)}");
@@ -603,7 +632,7 @@ class CPU {
   int _getCarryFlag() => _regP.getBit(0);
   int _getZeroFlag() => _regP.getBit(1);
   int _getInterruptDisableFlag() => _regP.getBit(2);
-  int _getDecimalModeFlag() => _regP.getBit(3);
+  // int _getDecimalModeFlag() => _regP.getBit(3); // decimal mode flag is not used
   int _getBreakCommandFlag() => _regP.getBit(4);
   int _getOverflowFlag() => _regP.getBit(6);
   int _getNegativeFlag() => _regP.getBit(7);
@@ -646,17 +675,6 @@ class CPU {
     return _popStack() | (_popStack() << 8);
   }
 
-  void _handleIRQ() {
-    _pushStack16Bit(_regPC);
-    _pushStack(_regP);
-
-    _regPC = bus.cpuRead16Bit(0xfffe);
-    _setInterruptDisableFlag(1);
-    _setBreakCommandFlag(1);
-
-    irqOccurred = false;
-  }
-
   void reset() {
     _regPC = bus.cpuRead16Bit(0xfffc);
     _regS = 0xfd;
@@ -682,7 +700,6 @@ extension DebugExtension on CPU {
     return "C:${_getCarryFlag()}" +
         " Z:${_getZeroFlag()}" +
         " I:${_getInterruptDisableFlag()}" +
-        " D:${_getDecimalModeFlag()}" +
         " B:${_getBreakCommandFlag()}" +
         " O:${_getOverflowFlag()}" +
         " N:${_getNegativeFlag()}" +

@@ -1,4 +1,4 @@
-import "dart:io";
+import "dart:io" show Platform;
 
 extension IntUtil on int {
   String toHex([int len = 4]) {
@@ -30,10 +30,6 @@ extension IntUtil on int {
       bits |= this.getBit(end - n);
     }
     return bits;
-  }
-
-  int overflow8Bit() {
-    return this.abs() > 127 ? 1 : 0;
   }
 
   int getNegativeBit() {

@@ -4,13 +4,13 @@ import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
+const int CYCLES_PER_SCANLINE = 341;
+const int SCANLINE_PER_FRAME = 262;
+const int POST_SCANLINE = 240;
+const int VBLANK_START_AT = 241;
+
 class PPU {
   PPU(this.bus);
-
-  static const int CYCLES_PER_SCANLINE = 341;
-  static const int SCANLINE_PER_FRAME = 262;
-  static const int POST_SCANLINE = 240;
-  static const int VBLANK_START_AT = 241;
 
   BUS bus;
 
@@ -33,6 +33,7 @@ class PPU {
   // +--------- Generate an NMI at the start of the
   //            vertical blanking inter.() (0: off; 1: on)
   int _regPPUCTRL;
+  int get _addrStepSize => _regPPUCTRL.getBit(3) == 1 ? 32 : 1;
 
   // Mask ($2001) > write
   // 7  bit  0
@@ -104,31 +105,32 @@ class PPU {
   int _regPPUTMPADDR; // VRAM temporary address, used in PPU
 
   // see: https://wiki.nesdev.com/w/index.php/PPU_registers#The_PPUDATA_read_buffer_.28post-fetch.29
-  int _ppuDataBuffer;
+  // the first result should be discard when CPU reading PPUDATA
+  int _ppuDataBuffer = 0x00;
 
   // Data ($2007) <> read/write
   // this is the port that CPU read/write data via VRAM.
   int getPPUDATA() {
     int vramData = bus.ppuRead(_regPPUADDR);
-    int value = vramData;
+    int value;
 
     if (_regPPUADDR % 0x4000 < 0x3f00) {
       value = _ppuDataBuffer;
       _ppuDataBuffer = vramData; // update data buffer with vram data
     } else {
       // when reading palttes, the buffer data is the mirrored nametable data that would appear "underneath" the palette.
-      _ppuDataBuffer = bus.ppuRead((_regPPUADDR % 0x4000) - 0x0100);
+      value = _ppuDataBuffer = vramData;
     }
 
-    _increaseAddr();
+    _regPPUADDR += _addrStepSize;
     return value;
   }
 
   void setPPUDATA(int value) {
-    debugLog("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex(2)} ");
+    print("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex(2)} ");
     bus.ppuWrite(_regPPUADDR, value);
 
-    _increaseAddr();
+    _regPPUADDR += _addrStepSize;
   }
 
   // OAM DMA ($4014) > write
@@ -156,7 +158,7 @@ class PPU {
   Frame frame = Frame();
 
   _renderPixel() {
-    int x = cycle, y = scanLine;
+    int x = cycle - 1, y = scanLine;
 
     // this is background render
     for (int i = 7; i >= 0; i--) {
@@ -168,7 +170,8 @@ class PPU {
   }
 
   _fetchNameTableByte() {
-    _nameTableByte = bus.ppuRead(0x2000 + _regPPUADDR & 0x0fff);
+    int addr = 0x2000 | (_regPPUADDR & 0x0fff);
+    _nameTableByte = bus.ppuRead(addr);
   }
 
   _fetchAttributeByte() {
@@ -192,29 +195,27 @@ class PPU {
   tick() {
     // every cycle behaivor is here: https://wiki.nesdev.com/w/index.php/PPU_rendering#Line-by-line_timing
 
-    if (backgroundRenderEnabled || spritesRenderEnabled) {
-      if (isCycleVisible && isScanLineVisible) {
-        _renderPixel();
+    if (isCycleVisible && isScanLineVisible) {
+      _renderPixel();
 
-        if (cycle == 257) {
-          _evaluateSprites();
-        }
+      if (cycle == 257) {
+        _evaluateSprites();
       }
+    }
 
-      if (cycle >= 1 && cycle <= 336) {
-        switch (cycle % 8) {
-          case 1:
-            _fetchNameTableByte();
-            break;
-          case 3:
-            _fetchAttributeByte();
-            break;
-          case 5:
-            _fetchNameTableTileData();
-            break;
-          case 7: // this case has done by last case.
-            break;
-        }
+    if (cycle >= 1 && cycle <= 336) {
+      switch (cycle % 8) {
+        case 1:
+          _fetchNameTableByte();
+          break;
+        case 3:
+          _fetchAttributeByte();
+          break;
+        case 5:
+          _fetchNameTableTileData();
+          break;
+        case 7: // this case has done by last case.
+          break;
       }
     }
 
@@ -281,14 +282,6 @@ class PPU {
   //   }[entry];
   // }
 
-  _increaseAddr() {
-    if (_regPPUCTRL.getBit(3) == 1) {
-      _regPPUADDR += 32;
-    } else {
-      _regPPUADDR += 1;
-    }
-  }
-
   // registers read/write is used for CPU
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
@@ -330,7 +323,7 @@ class PPU {
   void powerOn() {
     _regPPUCTRL = 0x00;
     _regPPUMASK = 0x00;
-    _regPPUSTATUS = 0xa0;
+    _regPPUSTATUS = 0x00;
     _regOAMADDR = 0x00;
     _regPPUSCROLL = 0x00;
     _regPPUADDR = 0x00;
