@@ -43,9 +43,9 @@ class Cardtridge {
 
     // header[7]
     int flag7 = data.elementAt(7);
-    isNES2 = flag7.getBits(1, 2) == 2;
+    isNES2 = (flag7 & 0x06 >> 1) == 2;
 
-    mapperNumber = flag7.getBits(4, 7) << 4 | flag6.getBits(4, 7);
+    mapperNumber = (flag7 & 0xf0) | (flag6 & 0xf0 >> 4);
 
     // after header
     int index = 0x10;

@@ -27,17 +27,4 @@ void main() {
     assert(num.getBit(6) == 0);
     assert(num.getBit(7) == 1);
   });
-
-  test("getBits", () {
-    int num = int.parse("10010011", radix: 2);
-
-    assert(num.getBits(0, 3) == int.parse("0011", radix: 2));
-    assert(num.getBits(1, 3) == int.parse("001", radix: 2));
-    assert(num.getBits(2, 3) == int.parse("00", radix: 2));
-    assert(num.getBits(3, 3) == int.parse("0", radix: 2));
-    assert(num.getBits(4, 7) == int.parse("1001", radix: 2));
-    assert(num.getBits(5, 7) == int.parse("100", radix: 2));
-    assert(num.getBits(6, 7) == int.parse("10", radix: 2));
-    assert(num.getBits(7, 7) == int.parse("1", radix: 2));
-  });
 }

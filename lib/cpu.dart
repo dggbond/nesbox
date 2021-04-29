@@ -31,7 +31,7 @@ class CPU {
     int nextPC = _regPC + op.bytes; // the target program counter then go.
 
     if (nmiOccurred) {
-      print("nmi occured");
+      debugLog("cpu nmi handled.");
       _pushStack16Bit(_regPC);
       _pushStack(_regP);
 
@@ -39,11 +39,11 @@ class CPU {
       _setInterruptDisableFlag(1);
 
       _regPC = bus.cpuRead16Bit(0xfffa);
+      nmiOccurred = false;
 
       return 7;
-    }
-
-    if (irqOccurred) {
+    } else if (irqOccurred) {
+      irqOccurred = false;
       // IRQ is ignored when interrupt disable flag is set.
       if (_getInterruptDisableFlag() == 0) {
         _pushStack16Bit(_regPC);
@@ -57,9 +57,6 @@ class CPU {
         return 7;
       }
     }
-
-    nmiOccurred = false;
-    irqOccurred = false;
 
     int addr;
     switch (op.addrMode) {
