@@ -108,6 +108,12 @@ enum Instr {
   IGN,
 }
 
+enum Interrupt {
+  IRQ,
+  NMI,
+  RESET,
+}
+
 class Op {
   const Op(this.instr, this.addrMode, this.bytes, this.cycles);
 

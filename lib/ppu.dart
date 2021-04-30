@@ -1,4 +1,5 @@
 import 'package:flutter_nes/bus.dart';
+import 'package:flutter_nes/cpu.dart' show Interrupt;
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
@@ -16,6 +17,7 @@ class PPU {
   // Controller ($2000) > write
   int _regPPUCTRL;
   int get addrStepSize => _regPPUCTRL.getBit(3) == 1 ? 32 : 1;
+  bool get enableNMI => _regPPUCTRL.getBit(7) == 1;
 
   void setPPUCTRL(int value) => _regPPUCTRL = value & 0xff;
 
@@ -150,7 +152,7 @@ class PPU {
 
     // this is background render
     for (int i = 7; i >= 0; i--) {
-      int paletteEntry = bus.ppuRead(0x3f00 + _attribute2Bit << 2 | _tile16Bit.getBit(i + 8) << 1 | _tile16Bit.getBit(i));
+      int paletteEntry = _tile16Bit.getBit(i + 8) << 1 | _tile16Bit.getBit(i);
       frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
     }
 
@@ -158,15 +160,18 @@ class PPU {
   }
 
   _fetchNameTableByte() {
-    int addr = 0x2000 | (_regPPUADDR & 0x0fff);
+    int addr = 0x2000 + (scanLine / 8).floor() * 32 + (cycle / 8).floor();
     _nameTableByte = bus.ppuRead(addr);
+    debugLog("PPU fetch name table byte: ${_nameTableByte.toHex(2)} from ${addr.toHex()}");
   }
 
   _fetchAttributeByte() {
-    int nameTableByteIndex = _regPPUADDR % 0x03c0;
+    int nameTableByteIndex = (scanLine * 32 + (cycle / 8).floor()) % 0x03c0;
     int attributeAddress = 0x23c0 + (nameTableByteIndex / 0x10).floor();
     int attributeByte = bus.ppuRead(attributeAddress);
     int positionNum = ((nameTableByteIndex % 16) / 4).floor();
+
+    debugLog("PPU fetch attr byte: ${attributeByte.toHex(2)} from ${attributeAddress.toHex()}");
 
     _attribute2Bit = (attributeByte >> positionNum * 2) & 0x0003; // 0b11
   }
@@ -176,6 +181,7 @@ class PPU {
     int upperTileByte = bus.ppuRead(_nameTableByte + 0x08);
 
     _tile16Bit = upperTileByte << 8 | lowerTileByte;
+    debugLog("PPU fetch tile byte: ${upperTileByte.toHex(2)}${lowerTileByte.toHex(2)}");
   }
 
   _evaluateSprites() {}
@@ -213,11 +219,10 @@ class PPU {
   _updateCycles() {
     cycle++;
 
-    // if current cycles is greater than a scanline required, enter to next scanline
+    // one scanline is completed.
     if (cycle > CYCLES_PER_SCANLINE) {
       cycle = 0;
       scanLine++;
-      return;
     }
 
     // OAMADDR is set to 0 during each of ticks 257-320
@@ -225,11 +230,19 @@ class PPU {
       _regOAMADDR = 0;
     }
 
+    // start vertical blanking
+    if (scanLine == 241 && cycle == 1) {
+      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 1);
+      // trigger a NMI interrupt
+      if (enableNMI) {
+        bus.cpu.interrupt = Interrupt.NMI;
+      }
+    }
+
     if (scanLine == SCANLINES_PER_FRAME - 1 && frames % 2 == 1) {
       scanLine = -1;
-      cycle = 0;
+      frames++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-      return;
     }
 
     // one Frame is completed.
@@ -237,16 +250,6 @@ class PPU {
       scanLine = 0;
       frames++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-      return;
-    }
-
-    // start vertical blanking
-    if (scanLine == 241) {
-      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 1);
-      // trigger a NMI interrupt
-      if (_regPPUCTRL.getBit(7) == 1) {
-        bus.cpu.nmiOccurred = true;
-      }
     }
   }
 
