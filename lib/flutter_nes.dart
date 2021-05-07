@@ -49,6 +49,10 @@ class NesEmulator {
     Future.delayed(Duration(microseconds: ms), _tick);
   }
 
+  onFrameDone(FrameDoneCallback cb) {
+    ppu.frameDoneCbs.add(cb);
+  }
+
   powerOn() {
     cpu.powerOn();
     ppu.powerOn();

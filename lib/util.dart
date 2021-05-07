@@ -22,16 +22,6 @@ extension IntUtil on int {
     return num;
   }
 
-  int getBits(int start, int end) {
-    int bits = 0;
-
-    for (int n = 0; n < end - start + 1; n++) {
-      bits <<= 1;
-      bits |= this.getBit(end - n);
-    }
-    return bits;
-  }
-
   int getNegativeBit() {
     return this.getBit(7);
   }

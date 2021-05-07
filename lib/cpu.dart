@@ -22,44 +22,11 @@ class CPU {
   int _regX; // Index register, used for indexed addressing mode, 8-bit
   int _regY; // Index register, 8-bit
 
-  bool nmiOccurred = false;
-  bool irqOccurred = false;
+  Interrupt interrupt;
 
   // execute one instruction
   int emulate(Op op) {
     int cycles = op.cycles;
-    int nextPC = _regPC + op.bytes; // the target program counter then go.
-
-    if (nmiOccurred) {
-      print("nmi occured");
-      _pushStack16Bit(_regPC);
-      _pushStack(_regP);
-
-      // Set the interrupt disable flag to prevent further interrupts.
-      _setInterruptDisableFlag(1);
-
-      _regPC = bus.cpuRead16Bit(0xfffa);
-
-      return 7;
-    }
-
-    if (irqOccurred) {
-      // IRQ is ignored when interrupt disable flag is set.
-      if (_getInterruptDisableFlag() == 0) {
-        _pushStack16Bit(_regPC);
-        _pushStack(_regP);
-
-        _setInterruptDisableFlag(1);
-        _setBreakCommandFlag(1);
-
-        _regPC = bus.cpuRead16Bit(0xfffe);
-
-        return 7;
-      }
-    }
-
-    nmiOccurred = false;
-    irqOccurred = false;
 
     int addr;
     switch (op.addrMode) {
@@ -107,7 +74,7 @@ class CPU {
       case AddrMode.Relative:
         int offset = bus.cpuRead(_regPC + 1);
         // offset is a signed integer
-        addr = offset > 0x80 ? offset - 0x100 : offset;
+        addr = offset >= 0x80 ? offset - 0x100 : offset;
         break;
 
       case AddrMode.IndexedIndirect:
@@ -120,6 +87,9 @@ class CPU {
         if (isPageCrossed(addr, addr - _regY)) cycles++;
         break;
     }
+
+    // update PC register
+    _regPC += op.bytes;
 
     switch (op.instr) {
       case Instr.ADC:
@@ -147,38 +117,38 @@ class CPU {
 
       case Instr.ASL:
         int M = op.addrMode == AddrMode.Accumulator ? _regA : bus.cpuRead(addr);
-        int result = (M >> 1) & 0xff;
+        int result = (M << 1) & 0xff;
 
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = result;
-          _setZeroFlag(_regA.getZeroBit());
         } else {
           bus.cpuWrite(addr, result);
         }
 
         _setCarryFlag(M.getBit(7));
+        _setZeroFlag(result.getZeroBit());
         _setNegativeFlag(result.getNegativeBit());
         break;
 
       case Instr.BCC:
         if (_getCarryFlag() == 0) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
 
         break;
 
       case Instr.BCS:
         if (_getCarryFlag() == 1) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BEQ:
         if (_getZeroFlag() == 1) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
@@ -193,48 +163,46 @@ class CPU {
 
       case Instr.BMI:
         if (_getNegativeFlag() == 1) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BNE:
         if (_getZeroFlag() == 0) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BPL:
         if (_getNegativeFlag() == 0) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
       case Instr.BRK:
-        if (_getInterruptDisableFlag() == 0) {
-          _pushStack16Bit(_regPC + 1);
-          _pushStack(_regP);
+        _pushStack16Bit(_regPC + 1);
+        _pushStack(_regP);
 
-          _setInterruptDisableFlag(1);
-          _setBreakCommandFlag(1);
+        _setInterruptDisableFlag(1);
+        _setBreakCommandFlag(1);
 
-          nextPC = bus.cpuRead16Bit(0xfffe);
-        }
+        _regPC = bus.cpuRead16Bit(0xfffe);
         break;
 
       case Instr.BVC:
         if (_getOverflowFlag() == 0) {
-          nextPC += addr;
+          _regPC += addr;
           cycles += 1;
         }
         break;
 
       case Instr.BVS:
         if (_getOverflowFlag() == 1) {
-          nextPC += addr;
-          cycles += isPageCrossed(nextPC, _regPC) ? 2 : 1;
+          _regPC += addr;
+          cycles += isPageCrossed(_regPC, _regPC - addr) ? 2 : 1;
         }
         break;
 
@@ -330,13 +298,12 @@ class CPU {
         break;
 
       case Instr.JMP:
-        nextPC = addr;
+        _regPC = addr;
         break;
 
       case Instr.JSR:
         _pushStack16Bit(_regPC - 1);
-        _pushStack(_regP);
-        nextPC = addr;
+        _regPC = addr;
         break;
 
       case Instr.LDA:
@@ -362,16 +329,16 @@ class CPU {
 
       case Instr.LSR:
         int M = op.addrMode == AddrMode.Accumulator ? _regA : bus.cpuRead(addr);
-        int result = (M << 1) & 0xff;
+        int result = (M >> 1) & 0xff;
 
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = result;
-          _setZeroFlag(_regA.getZeroBit());
         } else {
           bus.cpuWrite(addr, result);
         }
 
         _setCarryFlag(M.getBit(7));
+        _setZeroFlag(result.getZeroBit());
         _setNegativeFlag(result.getNegativeBit());
         break;
 
@@ -439,14 +406,13 @@ class CPU {
 
       case Instr.RTI:
         _regP = _popStack();
-        nextPC = _popStack16Bit();
+        _regPC = _popStack16Bit();
 
         _setInterruptDisableFlag(0);
         break;
 
       case Instr.RTS:
-        _regP = _popStack();
-        nextPC = _popStack16Bit() + 1;
+        _regPC = _popStack16Bit() + 1;
         break;
 
       case Instr.SBC:
@@ -598,8 +564,6 @@ class CPU {
         throw ("cpu emulate: ${op.instr} is an unknown instruction.");
     }
 
-    _regPC = nextPC & 0xffff;
-
     cycles += bus.dmaCycles;
     bus.dmaCycles = 0;
 
@@ -607,6 +571,38 @@ class CPU {
   }
 
   int tick() {
+    switch (interrupt) {
+      case Interrupt.NMI:
+        debugLog("cpu nmi handled.");
+        _pushStack16Bit(_regPC);
+        _pushStack(_regP);
+
+        // Set the interrupt disable flag to prevent further interrupts.
+        _setInterruptDisableFlag(1);
+
+        _regPC = bus.cpuRead16Bit(0xfffa);
+        interrupt = null;
+
+        return 7;
+      case Interrupt.IRQ:
+        interrupt = null;
+        // IRQ is ignored when interrupt disable flag is set.
+        if (_getInterruptDisableFlag() == 1) break;
+
+        _pushStack16Bit(_regPC);
+        _pushStack(_regP);
+
+        _setInterruptDisableFlag(1);
+        _setBreakCommandFlag(0);
+
+        _regPC = bus.cpuRead16Bit(0xfffe);
+
+        return 7;
+      case Interrupt.RESET:
+        reset();
+        return 7;
+    }
+
     int opcode = bus.cpuRead(_regPC);
 
     if (opcode == null) {

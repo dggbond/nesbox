@@ -1,108 +1,102 @@
 import 'package:flutter_nes/bus.dart';
+import 'package:flutter_nes/cpu.dart' show Interrupt;
 import 'package:flutter_nes/memory.dart';
 import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
-const int CYCLES_PER_SCANLINE = 341;
-const int SCANLINE_PER_FRAME = 262;
-const int POST_SCANLINE = 240;
-const int VBLANK_START_AT = 241;
+typedef FrameDoneCallback(Frame frame);
+
+const int MAX_CYCLE = 340;
+const int MAX_SCANLINE = 261;
 
 class PPU {
   PPU(this.bus);
+
+  List<FrameDoneCallback> frameDoneCbs = [];
 
   BUS bus;
 
   // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPU_registers
   // Controller ($2000) > write
-  // 7  bit  0
-  // ---- ----
-  // VPHB SINN
-  // |||| ||||
-  // |||| ||++- Base nametable address
-  // |||| ||    (0 = $2000; 1 = $2400; 2 = $2800; 3 = $2C00)
-  // |||| |+--- VRAM address increment per CPU read/write of PPUDATA
-  // |||| |     (0: add 1, going across; 1: add 32, going down)
-  // |||| +---- Sprite pattern table address for 8x8 sprites
-  // ||||       (0: $0000; 1: $1000; ignored in 8x16 mode)
-  // |||+------ Background pattern table address (0: $0000; 1: $1000)
-  // ||+------- Sprite size (0: 8x8 pixels; 1: 8x16 pixels)
-  // |+-------- PPU master/slave select
-  // |          (0: read backdrop from EXT pins; 1: output color on EXT pins)
-  // +--------- Generate an NMI at the start of the
-  //            vertical blanking inter.() (0: off; 1: on)
   int _regPPUCTRL;
-  int get _addrStepSize => _regPPUCTRL.getBit(3) == 1 ? 32 : 1;
+  int get addrStepSize => _regPPUCTRL.getBit(3) == 1 ? 32 : 1;
+  bool get enableNMI => _regPPUCTRL.getBit(7) == 1;
+
+  void setPPUCTRL(int value) => _regPPUCTRL = value & 0xff;
+  int getPPUCTRL() => _regPPUCTRL;
 
   // Mask ($2001) > write
-  // 7  bit  0
-  // ---- ----
-  // BGRs bMmG
-  // |||| ||||
-  // |||| |||+- Greyscale (0: normal color, 1: produce a greyscale display)
-  // |||| ||+-- 1: Show background in leftmost 8 pixels of screen, 0: Hide
-  // |||| |+--- 1: Show sprites in leftmost 8 pixels of screen, 0: Hide
-  // |||| +---- 1: Show background
-  // |||+------ 1: Show sprites
-  // ||+------- Emphasize red (green on PAL/Dendy)
-  // |+-------- Emphasize green (red on PAL/Dendy)
-  // +--------- Emphasize blue
   int _regPPUMASK;
-
   bool get greyscaleEnabled => _regPPUMASK.getBit(0) == 1;
   bool get backgroundLeftRenderEnabled => _regPPUMASK.getBit(1) == 1;
   bool get spritesLeftRenderEnabled => _regPPUMASK.getBit(2) == 1;
   bool get backgroundRenderEnabled => _regPPUMASK.getBit(3) == 1;
   bool get spritesRenderEnabled => _regPPUMASK.getBit(4) == 1;
 
-  // Status ($2002) < read
-  // 7  bit  0
-  // ---- ----
-  // VSO. ....
-  // |||| ||||
-  // |||+-++++- Least significant bits previously written into a PPU register
-  // |||        (due to register not being updated for this address)
-  // ||+------- Sprite overflow. The intent was for this flag to be set
-  // ||         whenever more than eight sprites appear on a scanline, but a
-  // ||         hardware bug causes the actual behavior to be more complicated
-  // ||         and generate false positives as well as false negatives; see
-  // ||         PPU sprite e.valuation. This flag is set during sprite
-  // ||         e.valuation and cleared at dot 1 (the second dot) of the
-  // ||         pre-render line.
-  // |+-------- Sprite 0 Hit.  Set when a nonzero pixel of sprite 0 overlaps
-  // |          a nonzero background pixel; cleared at dot 1 of the pre-render
-  // |          line.  Used for raster timing.
-  // +--------- Vertical blank has started (0: not in vblank; 1: in vblank).
-  //            Set at dot 1 of line 241 (the line *after* the post-render
-  //            line); cleared after reading $2002 and at dot 1 of the
-  //            pre-render line.
-  int _regPPUSTATUS;
+  void setPPUMASK(int value) => _regPPUMASK = value & 0xff;
+  int getPPUMASK() => _regPPUMASK;
 
-  // OAM(Object Attribute Memory) address ($2003) > write
+  // Status ($2002) < read
+  int _regPPUSTATUS;
+  bool get verticalBlanking => _regPPUSTATUS.getBit(7) == 1;
+  bool get spriteHit => _regPPUSTATUS.getBit(6) == 1;
+  bool get spriteOverflow => _regPPUSTATUS.getBit(5) == 1;
+
+  int getPPUSTATUS() {
+    // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
+    int val = _regPPUSTATUS;
+    _scrollWriteUpper = true;
+    _addrWriteUpper = true;
+    _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
+
+    return val;
+  }
+
+  // OAM address ($2003) > write
   int _regOAMADDR;
+
+  void setOAMADDR(int value) => _regOAMADDR = value;
+  int getOAMADDR() => _regOAMADDR;
 
   // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
-  Memory _OAM = Memory(0xff);
+  Memory _spriteRAM = Memory(0xff);
 
-  int getOAMDATA() => _OAM.read(_regOAMADDR);
-  void setOAMDATA(int value) {
-    _OAM.write(_regOAMADDR, value);
-    _regOAMADDR += 1;
-  }
+  int getOAMDATA() => _spriteRAM.read(_regOAMADDR);
+  void setOAMDATA(int value) => _spriteRAM.write(_regOAMADDR++, value);
 
   // Scroll ($2005) >> write x2
   // upper byte mean x scroll.
   // lower byte mean y scroll.
   int _regPPUSCROLL; // 16-bit
-  int _scrollWriteToggle = 0; // 0: write PPUSCROLL upper bits, 1: write lower bits
+  bool _scrollWriteUpper = true; // 0: write PPUSCROLL upper bits, 1: write lower bits
+  int get scrollX => _regPPUSCROLL & 0xf0 >> 4;
+  int get scrollY => _regPPUSCROLL & 0xf;
+
+  void setPPUSCROLL(int value) {
+    if (_scrollWriteUpper) {
+      _regPPUSCROLL = (_regPPUSCROLL & 0xff) | value << 8;
+    } else {
+      _regPPUSCROLL = (_regPPUSCROLL & 0xff00) | value;
+    }
+    _scrollWriteUpper = !_scrollWriteUpper;
+  }
 
   // VRAM Address ($2006) >> write x2
   int _regPPUADDR; // 16-bit
-  int _addrWriteToggle = 0; // 0: write PPUADDR upper bits, 1: write lower bits
   int _regPPUTMPADDR; // VRAM temporary address, used in PPU
+  bool _addrWriteUpper = true; // 0: write PPUADDR upper bits, 1: write lower bits
+
+  void setPPUADDR(int value) {
+    if (_addrWriteUpper) {
+      _regPPUADDR = (_regPPUADDR & 0xff) | value << 8;
+    } else {
+      _regPPUADDR = (_regPPUADDR & 0xff00) | value;
+    }
+    _addrWriteUpper = !_addrWriteUpper;
+  }
 
   // see: https://wiki.nesdev.com/w/index.php/PPU_registers#The_PPUDATA_read_buffer_.28post-fetch.29
   // the first result should be discard when CPU reading PPUDATA
@@ -119,18 +113,19 @@ class PPU {
       _ppuDataBuffer = vramData; // update data buffer with vram data
     } else {
       // when reading palttes, the buffer data is the mirrored nametable data that would appear "underneath" the palette.
-      value = _ppuDataBuffer = vramData;
+      value = vramData;
+      _ppuDataBuffer = bus.ppuRead(_regPPUADDR - 0x1000);
     }
 
-    _regPPUADDR += _addrStepSize;
+    _regPPUADDR += addrStepSize;
     return value;
   }
 
   void setPPUDATA(int value) {
-    print("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex(2)} ");
+    debugLog("set PPU data, ${_regPPUADDR.toHex()}: ${value.toHex(2)} ");
     bus.ppuWrite(_regPPUADDR, value);
 
-    _regPPUADDR += _addrStepSize;
+    _regPPUADDR += addrStepSize;
   }
 
   // OAM DMA ($4014) > write
@@ -139,55 +134,58 @@ class PPU {
 
     int oamAddr = _regOAMADDR;
     for (int i = 0; i < 0xff; i++) {
-      _OAM.write(oamAddr + i, bus.cpuRead(page + i));
+      _spriteRAM.write(oamAddr + i, bus.cpuRead(page + i));
     }
   }
 
-  int scanLine = -1;
+  int scanLine = 0;
   int cycle = 0;
   int frames = 0;
 
-  int _nameTableByte = 0;
-  int _attribute2Bit = 0;
-  int _tile16Bit = 0;
-
-  bool get isScanLineVisible => scanLine >= 0 && scanLine < POST_SCANLINE;
-  bool get isScanLineVBlanking => scanLine >= VBLANK_START_AT;
+  bool get isScanLineVisible => scanLine >= 0 && scanLine < 240;
+  bool get isScanLinePreRender => scanLine == MAX_SCANLINE;
   bool get isCycleVisible => cycle >= 1 && cycle <= 256;
 
-  Frame frame = Frame();
+  // background data rendering now
+  int _nameTableByte = 0;
+  int _attributeTableByte = 0;
+  int _bgTile = 0; // 16-bit tile data
+
+  // background data for next rendering
+  int _nextNameTableByte = 0;
+  int _nextAttributeTableByte = 0;
+  int _nextBgTile = 0;
+
+  // frame info
+  Frame _frame = Frame();
 
   _renderPixel() {
     int x = cycle - 1, y = scanLine;
 
     // this is background render
-    for (int i = 7; i >= 0; i--) {
-      int paletteEntry = bus.ppuRead(0x3f00 + _attribute2Bit << 2 | _tile16Bit.getBit(i + 8) << 1 | _tile16Bit.getBit(i));
-      frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
-    }
-
+    int paletteEntry = _bgTile.getBit(7 - x % 8) | _bgTile.getBit(15 - x % 8) << 1;
+    _frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
     // @TODO sprites render
   }
 
-  _fetchNameTableByte() {
-    int addr = 0x2000 | (_regPPUADDR & 0x0fff);
+  _fetchNTByte() {
+    int addr = 0x2000 + ((cycle - 1) / 8).floor() + (scanLine / 8).floor() * 32;
     _nameTableByte = bus.ppuRead(addr);
+    debugLog("PPU fetch name table byte: ${_nameTableByte.toHex(2)} from ${addr.toHex()}");
   }
 
-  _fetchAttributeByte() {
-    int nameTableByteIndex = _regPPUADDR % 0x03c0;
-    int attributeAddress = 0x23c0 + (nameTableByteIndex / 0x10).floor();
-    int attributeByte = bus.ppuRead(attributeAddress);
-    int positionNum = ((nameTableByteIndex % 16) / 4).floor();
-
-    _attribute2Bit = (attributeByte >> positionNum * 2) & 0x0003; // 0b11
+  _fetchATByte() {
+    // @TODO
   }
 
-  _fetchNameTableTileData() {
-    int lowerTileByte = bus.ppuRead(_nameTableByte);
-    int upperTileByte = bus.ppuRead(_nameTableByte + 0x08);
+  _fetchLowBGTileByte() {
+    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    _nextBgTile = (_nextBgTile & 0xff00) | bus.ppuRead(addr);
+  }
 
-    _tile16Bit = upperTileByte << 8 | lowerTileByte;
+  _fetchHighBGTileByte() {
+    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    _nextBgTile = (_nextBgTile & 0x00ff) | bus.ppuRead(addr + 8) << 8;
   }
 
   _evaluateSprites() {}
@@ -203,19 +201,29 @@ class PPU {
       }
     }
 
-    if (cycle >= 1 && cycle <= 336) {
-      switch (cycle % 8) {
-        case 1:
-          _fetchNameTableByte();
-          break;
-        case 3:
-          _fetchAttributeByte();
-          break;
-        case 5:
-          _fetchNameTableTileData();
-          break;
-        case 7: // this case has done by last case.
-          break;
+    if (isScanLinePreRender || isScanLineVisible) {
+      // fetch background data
+      if (cycle >= 1 && cycle <= 256) {
+        switch (cycle % 8) {
+          case 0:
+            _nameTableByte = _nextNameTableByte;
+            _attributeTableByte = _nextAttributeTableByte;
+            _bgTile = _nextBgTile;
+            break;
+
+          case 1:
+            _fetchNTByte();
+            break;
+          case 3:
+            _fetchATByte();
+            break;
+          case 5:
+            _fetchLowBGTileByte();
+            break;
+          case 7:
+            _fetchHighBGTileByte();
+            break;
+        }
       }
     }
 
@@ -225,11 +233,10 @@ class PPU {
   _updateCycles() {
     cycle++;
 
-    // if current cycles is greater than a scanline required, enter to next scanline
-    if (cycle > CYCLES_PER_SCANLINE) {
+    // one scanline is completed.
+    if (cycle > MAX_CYCLE) {
       cycle = 0;
       scanLine++;
-      return;
     }
 
     // OAMADDR is set to 0 during each of ticks 257-320
@@ -237,86 +244,27 @@ class PPU {
       _regOAMADDR = 0;
     }
 
-    if (scanLine == SCANLINE_PER_FRAME - 1 && frames % 2 == 1) {
-      scanLine = -1;
-      cycle = 0;
+    // start vertical blanking
+    if (scanLine == 241 && cycle == 1) {
+      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 1);
+      // trigger a NMI interrupt
+      if (enableNMI) {
+        bus.cpu.interrupt = Interrupt.NMI;
+      }
+    }
+
+    if (isScanLinePreRender && frames % 2 == 1) {
+      scanLine++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-      return;
     }
 
     // one Frame is completed.
-    if (scanLine > SCANLINE_PER_FRAME) {
+    if (scanLine > MAX_SCANLINE) {
       scanLine = 0;
       frames++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-      return;
-    }
 
-    if (scanLine == VBLANK_START_AT) {
-      _regPPUSTATUS = _regPPUSTATUS.setBit(7, 1);
-      // trigger a NMI interrupt
-      if (_regPPUCTRL.getBit(7) == 1) {
-        bus.cpu.nmiOccurred = true;
-      }
-    }
-  }
-
-  // render one tile to frame.
-  // void _renderTile(Frame frame, int address, int offsetX, int offsetY) {
-  //   var tile = bus.ppuReadBank(_patternTableAddress + address, 0x10);
-
-  //   for (int y = 0; y < 8; y++) {
-  //     for (int x = 7; x >= 0; x--) {
-  //       int paletteEntry = tile[y + 8].getBit(x) << 1 | tile[y].getBit(x);
-  //       frame.setPixel(offsetX + (7 - x), offsetY + y, _testPalette(paletteEntry));
-  //     }
-  //   }
-  // }
-
-  // int _testPalette(int entry) {
-  //   return {
-  //     0: NES_SYS_PALETTES[0x02],
-  //     1: NES_SYS_PALETTES[0x05],
-  //     2: NES_SYS_PALETTES[0x28],
-  //     3: NES_SYS_PALETTES[0x18],
-  //   }[entry];
-  // }
-
-  // registers read/write is used for CPU
-  int getPPUSTATUS() {
-    // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
-    int val = _regPPUSTATUS;
-    _scrollWriteToggle = 0;
-    _addrWriteToggle = 0;
-    _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-
-    return val;
-  }
-
-  void setPPUCTRL(int value) => _regPPUCTRL = value;
-  void setPPUMASK(int value) => _regPPUMASK = value;
-  void setOAMADDR(int value) => _regOAMADDR = value;
-  void setPPUSCROLL(int value) {
-    if (_scrollWriteToggle == 0) {
-      _regPPUADDR = value << 4;
-      _scrollWriteToggle = 1;
-    } else {
-      _regPPUADDR |= value;
-      _scrollWriteToggle = 0;
-    }
-  }
-
-  void setPPUADDR(int value) {
-    if (_regPPUSTATUS.getBit(4) == 1) {
-      return;
-    }
-
-    if (_addrWriteToggle == 0) {
-      _regPPUADDR = value << 4;
-      _addrWriteToggle = 1;
-    } else {
-      _regPPUADDR |= value;
-      _addrWriteToggle = 0;
+      frameDoneCbs.forEach((callback) => callback(_frame));
     }
   }
 
@@ -336,7 +284,7 @@ class PPU {
     _regPPUSCROLL = 0x00;
     _ppuDataBuffer = 0x00;
 
-    _scrollWriteToggle = 0;
-    _addrWriteToggle = 0;
+    _scrollWriteUpper = true;
+    _addrWriteUpper = true;
   }
 }
