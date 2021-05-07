@@ -5,11 +5,15 @@ import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
-const int CYCLES_PER_SCANLINE = 341;
-const int SCANLINES_PER_FRAME = 262;
+typedef FrameDoneCallback(Frame frame);
+
+const int MAX_CYCLE = 340;
+const int MAX_SCANLINE = 261;
 
 class PPU {
   PPU(this.bus);
+
+  List<FrameDoneCallback> frameDoneCbs = [];
 
   BUS bus;
 
@@ -20,6 +24,7 @@ class PPU {
   bool get enableNMI => _regPPUCTRL.getBit(7) == 1;
 
   void setPPUCTRL(int value) => _regPPUCTRL = value & 0xff;
+  int getPPUCTRL() => _regPPUCTRL;
 
   // Mask ($2001) > write
   int _regPPUMASK;
@@ -30,6 +35,7 @@ class PPU {
   bool get spritesRenderEnabled => _regPPUMASK.getBit(4) == 1;
 
   void setPPUMASK(int value) => _regPPUMASK = value & 0xff;
+  int getPPUMASK() => _regPPUMASK;
 
   // Status ($2002) < read
   int _regPPUSTATUS;
@@ -51,6 +57,7 @@ class PPU {
   int _regOAMADDR;
 
   void setOAMADDR(int value) => _regOAMADDR = value;
+  int getOAMADDR() => _regOAMADDR;
 
   // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
@@ -131,57 +138,54 @@ class PPU {
     }
   }
 
-  int scanLine = -1;
+  int scanLine = 0;
   int cycle = 0;
   int frames = 0;
 
   bool get isScanLineVisible => scanLine >= 0 && scanLine < 240;
-  bool get isScanLineVBlanking => scanLine > 240;
+  bool get isScanLinePreRender => scanLine == MAX_SCANLINE;
   bool get isCycleVisible => cycle >= 1 && cycle <= 256;
 
-  // stored data for render
+  // background data rendering now
   int _nameTableByte = 0;
-  int _attribute2Bit = 0;
-  int _tile16Bit = 0;
+  int _attributeTableByte = 0;
+  int _bgTile = 0; // 16-bit tile data
+
+  // background data for next rendering
+  int _nextNameTableByte = 0;
+  int _nextAttributeTableByte = 0;
+  int _nextBgTile = 0;
 
   // frame info
-  Frame frame = Frame();
+  Frame _frame = Frame();
 
   _renderPixel() {
     int x = cycle - 1, y = scanLine;
 
     // this is background render
-    for (int i = 7; i >= 0; i--) {
-      int paletteEntry = _tile16Bit.getBit(i + 8) << 1 | _tile16Bit.getBit(i);
-      frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
-    }
-
+    int paletteEntry = _bgTile.getBit(7 - x % 8) | _bgTile.getBit(15 - x % 8) << 1;
+    _frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
     // @TODO sprites render
   }
 
-  _fetchNameTableByte() {
-    int addr = 0x2000 + (scanLine / 8).floor() * 32 + (cycle / 8).floor();
+  _fetchNTByte() {
+    int addr = 0x2000 + ((cycle - 1) / 8).floor() + (scanLine / 8).floor() * 32;
     _nameTableByte = bus.ppuRead(addr);
     debugLog("PPU fetch name table byte: ${_nameTableByte.toHex(2)} from ${addr.toHex()}");
   }
 
-  _fetchAttributeByte() {
-    int nameTableByteIndex = (scanLine * 32 + (cycle / 8).floor()) % 0x03c0;
-    int attributeAddress = 0x23c0 + (nameTableByteIndex / 0x10).floor();
-    int attributeByte = bus.ppuRead(attributeAddress);
-    int positionNum = ((nameTableByteIndex % 16) / 4).floor();
-
-    debugLog("PPU fetch attr byte: ${attributeByte.toHex(2)} from ${attributeAddress.toHex()}");
-
-    _attribute2Bit = (attributeByte >> positionNum * 2) & 0x0003; // 0b11
+  _fetchATByte() {
+    // @TODO
   }
 
-  _fetchNameTableTileData() {
-    int lowerTileByte = bus.ppuRead(_nameTableByte);
-    int upperTileByte = bus.ppuRead(_nameTableByte + 0x08);
+  _fetchLowBGTileByte() {
+    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    _nextBgTile = (_nextBgTile & 0xff00) | bus.ppuRead(addr);
+  }
 
-    _tile16Bit = upperTileByte << 8 | lowerTileByte;
-    debugLog("PPU fetch tile byte: ${upperTileByte.toHex(2)}${lowerTileByte.toHex(2)}");
+  _fetchHighBGTileByte() {
+    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    _nextBgTile = (_nextBgTile & 0x00ff) | bus.ppuRead(addr + 8) << 8;
   }
 
   _evaluateSprites() {}
@@ -197,19 +201,29 @@ class PPU {
       }
     }
 
-    if (cycle >= 1 && cycle <= 336) {
-      switch (cycle % 8) {
-        case 1:
-          _fetchNameTableByte();
-          break;
-        case 3:
-          _fetchAttributeByte();
-          break;
-        case 5:
-          _fetchNameTableTileData();
-          break;
-        case 7: // this case has done by last case.
-          break;
+    if (isScanLinePreRender || isScanLineVisible) {
+      // fetch background data
+      if (cycle >= 1 && cycle <= 256) {
+        switch (cycle % 8) {
+          case 0:
+            _nameTableByte = _nextNameTableByte;
+            _attributeTableByte = _nextAttributeTableByte;
+            _bgTile = _nextBgTile;
+            break;
+
+          case 1:
+            _fetchNTByte();
+            break;
+          case 3:
+            _fetchATByte();
+            break;
+          case 5:
+            _fetchLowBGTileByte();
+            break;
+          case 7:
+            _fetchHighBGTileByte();
+            break;
+        }
       }
     }
 
@@ -220,7 +234,7 @@ class PPU {
     cycle++;
 
     // one scanline is completed.
-    if (cycle > CYCLES_PER_SCANLINE) {
+    if (cycle > MAX_CYCLE) {
       cycle = 0;
       scanLine++;
     }
@@ -239,17 +253,18 @@ class PPU {
       }
     }
 
-    if (scanLine == SCANLINES_PER_FRAME - 1 && frames % 2 == 1) {
-      scanLine = -1;
-      frames++;
+    if (isScanLinePreRender && frames % 2 == 1) {
+      scanLine++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
     }
 
     // one Frame is completed.
-    if (scanLine > SCANLINES_PER_FRAME) {
+    if (scanLine > MAX_SCANLINE) {
       scanLine = 0;
       frames++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
+
+      frameDoneCbs.forEach((callback) => callback(_frame));
     }
   }
 

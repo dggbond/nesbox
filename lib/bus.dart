@@ -28,13 +28,13 @@ class BUS {
     if (address < 0x2000) return cpuRAM.read(address % 0x800);
 
     // access PPU Registers
-    if (address == 0x2000) throw ("CPU can not read PPUCTRL register");
-    if (address == 0x2001) throw ("CPU can not read PPUMASK register");
+    if (address == 0x2000) return ppu.getPPUCTRL();
+    if (address == 0x2001) return ppu.getPPUMASK();
     if (address == 0x2002) return ppu.getPPUSTATUS();
-    if (address == 0x2003) throw ("CPU can not read OMAADDR register");
+    if (address == 0x2003) return 0;
     if (address == 0x2004) return ppu.getOAMDATA();
-    if (address == 0x2005) throw ("CPU can not read PPUSCROLL register");
-    if (address == 0x2006) throw ("CPU can not read PPUADDR register");
+    if (address == 0x2005) return 0;
+    if (address == 0x2006) return 0;
     if (address == 0x2007) return ppu.getPPUDATA();
 
     // access PPU Registers mirrors
@@ -210,16 +210,16 @@ class BUS {
     if (address < 0x3000) return ppuRAM.write(address - 0x2000, value);
 
     // NameTables Mirrors
-    if (address < 0x3f00) throw ("ppu writing: not allowed to write name tables mirrors.");
+    if (address < 0x3f00) return ppuWrite(0x2000 + (address - 0x3000) % 0xf00, value);
 
     // Palettes
     if (address < 0x3f20) return ppuPalettes.write(address - 0x3f00, value);
 
     // Palettes Mirrors
-    if (address < 0x4000) throw ("ppu writing: not allowed to write palettes mirrors.");
+    if (address < 0x4000) return ppuWrite(0x3f00 + (address - 0x3f20) % 0x20, value);
 
     // whole Mirrors
-    if (address < 0x10000) throw ("ppu writing: not allowed to write mirrors.");
+    if (address < 0x10000) return ppuWrite(address % 0x4000, value);
 
     throw ("cpu writing: address ${address.toHex()} is over memory map size.");
   }

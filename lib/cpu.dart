@@ -117,16 +117,16 @@ class CPU {
 
       case Instr.ASL:
         int M = op.addrMode == AddrMode.Accumulator ? _regA : bus.cpuRead(addr);
-        int result = (M >> 1) & 0xff;
+        int result = (M << 1) & 0xff;
 
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = result;
-          _setZeroFlag(_regA.getZeroBit());
         } else {
           bus.cpuWrite(addr, result);
         }
 
         _setCarryFlag(M.getBit(7));
+        _setZeroFlag(result.getZeroBit());
         _setNegativeFlag(result.getNegativeBit());
         break;
 
@@ -183,8 +183,6 @@ class CPU {
         break;
 
       case Instr.BRK:
-        if (_getInterruptDisableFlag() == 1) break;
-
         _pushStack16Bit(_regPC + 1);
         _pushStack(_regP);
 
@@ -331,16 +329,16 @@ class CPU {
 
       case Instr.LSR:
         int M = op.addrMode == AddrMode.Accumulator ? _regA : bus.cpuRead(addr);
-        int result = (M << 1) & 0xff;
+        int result = (M >> 1) & 0xff;
 
         if (op.addrMode == AddrMode.Accumulator) {
           _regA = result;
-          _setZeroFlag(_regA.getZeroBit());
         } else {
           bus.cpuWrite(addr, result);
         }
 
         _setCarryFlag(M.getBit(7));
+        _setZeroFlag(result.getZeroBit());
         _setNegativeFlag(result.getNegativeBit());
         break;
 
