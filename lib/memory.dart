@@ -11,7 +11,7 @@ class Memory {
     _mem[address] = value;
   }
 
-  void reset() {
+  void clear() {
     _mem.fillRange(0, _mem.length, 0x00);
   }
 }

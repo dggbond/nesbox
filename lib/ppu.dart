@@ -5,21 +5,27 @@ import 'package:flutter_nes/util.dart';
 import 'package:flutter_nes/palette.dart';
 import 'package:flutter_nes/frame.dart';
 
-typedef FrameDoneCallback(Frame frame);
-
-const int MAX_CYCLE = 340;
-const int MAX_SCANLINE = 261;
+const int CYCLES_PER_SCANLINE = 341;
+const int SCANLINES_PER_FRAME = 262;
 
 class PPU {
   PPU(this.bus);
-
-  List<FrameDoneCallback> frameDoneCbs = [];
 
   BUS bus;
 
   // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPU_registers
   // Controller ($2000) > write
   int _regPPUCTRL;
+  int get baseNameTableAddress => {
+        0: 0x2000,
+        1: 0x2400,
+        2: 0x2800,
+        3: 0x2c00,
+      }[_regPPUCTRL & 0x03];
+  int get backgroundPTAddress => {
+        0: 0x0000,
+        1: 0x1000,
+      }[_regPPUCTRL.getBit(4)];
   int get addrStepSize => _regPPUCTRL.getBit(3) == 1 ? 32 : 1;
   bool get enableNMI => _regPPUCTRL.getBit(7) == 1;
 
@@ -71,7 +77,8 @@ class PPU {
   // upper byte mean x scroll.
   // lower byte mean y scroll.
   int _regPPUSCROLL; // 16-bit
-  bool _scrollWriteUpper = true; // 0: write PPUSCROLL upper bits, 1: write lower bits
+  bool _scrollWriteUpper =
+      true; // 0: write PPUSCROLL upper bits, 1: write lower bits
   int get scrollX => _regPPUSCROLL & 0xf0 >> 4;
   int get scrollY => _regPPUSCROLL & 0xf;
 
@@ -87,7 +94,8 @@ class PPU {
   // VRAM Address ($2006) >> write x2
   int _regPPUADDR; // 16-bit
   int _regPPUTMPADDR; // VRAM temporary address, used in PPU
-  bool _addrWriteUpper = true; // 0: write PPUADDR upper bits, 1: write lower bits
+  bool _addrWriteUpper =
+      true; // 0: write PPUADDR upper bits, 1: write lower bits
 
   void setPPUADDR(int value) {
     if (_addrWriteUpper) {
@@ -143,7 +151,7 @@ class PPU {
   int frames = 0;
 
   bool get isScanLineVisible => scanLine >= 0 && scanLine < 240;
-  bool get isScanLinePreRender => scanLine == MAX_SCANLINE;
+  bool get isScanLinePreRender => scanLine == SCANLINES_PER_FRAME - 1;
   bool get isCycleVisible => cycle >= 1 && cycle <= 256;
 
   // background data rendering now
@@ -157,21 +165,24 @@ class PPU {
   int _nextBgTile = 0;
 
   // frame info
-  Frame _frame = Frame();
+  Frame frame = Frame();
 
   _renderPixel() {
     int x = cycle - 1, y = scanLine;
-
     // this is background render
-    int paletteEntry = _bgTile.getBit(7 - x % 8) | _bgTile.getBit(15 - x % 8) << 1;
-    _frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
+    int paletteEntry =
+        _bgTile.getBit(7 - x % 8) | _bgTile.getBit(15 - x % 8) << 1;
+    frame.setPixel(x, y, NES_SYS_PALETTES[paletteEntry]);
     // @TODO sprites render
   }
 
   _fetchNTByte() {
-    int addr = 0x2000 + ((cycle - 1) / 8).floor() + (scanLine / 8).floor() * 32;
-    _nameTableByte = bus.ppuRead(addr);
-    debugLog("PPU fetch name table byte: ${_nameTableByte.toHex(2)} from ${addr.toHex()}");
+    int addr = baseNameTableAddress +
+        (cycle / 8).floor() +
+        (scanLine / 8).floor() * 32;
+    _nextNameTableByte = bus.ppuRead(addr);
+    debugLog(
+        "PPU fetch name table byte: ${_nameTableByte.toHex(2)} from ${addr.toHex()}");
   }
 
   _fetchATByte() {
@@ -179,12 +190,12 @@ class PPU {
   }
 
   _fetchLowBGTileByte() {
-    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    int addr = backgroundPTAddress + _nextNameTableByte * 16 + scanLine % 8;
     _nextBgTile = (_nextBgTile & 0xff00) | bus.ppuRead(addr);
   }
 
   _fetchHighBGTileByte() {
-    int addr = 0x1000 + _nameTableByte * 16 + scanLine % 8;
+    int addr = backgroundPTAddress + _nextNameTableByte * 16 + scanLine % 8;
     _nextBgTile = (_nextBgTile & 0x00ff) | bus.ppuRead(addr + 8) << 8;
   }
 
@@ -205,13 +216,12 @@ class PPU {
       // fetch background data
       if (cycle >= 1 && cycle <= 256) {
         switch (cycle % 8) {
-          case 0:
+          case 1:
+            // set next data
             _nameTableByte = _nextNameTableByte;
             _attributeTableByte = _nextAttributeTableByte;
             _bgTile = _nextBgTile;
-            break;
 
-          case 1:
             _fetchNTByte();
             break;
           case 3:
@@ -234,7 +244,7 @@ class PPU {
     cycle++;
 
     // one scanline is completed.
-    if (cycle > MAX_CYCLE) {
+    if (cycle >= CYCLES_PER_SCANLINE) {
       cycle = 0;
       scanLine++;
     }
@@ -259,12 +269,10 @@ class PPU {
     }
 
     // one Frame is completed.
-    if (scanLine > MAX_SCANLINE) {
+    if (scanLine >= SCANLINES_PER_FRAME) {
       scanLine = 0;
       frames++;
       _regPPUSTATUS = _regPPUSTATUS.setBit(7, 0);
-
-      frameDoneCbs.forEach((callback) => callback(_frame));
     }
   }
 

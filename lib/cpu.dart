@@ -5,8 +5,6 @@ import 'package:flutter_nes/bus.dart';
 
 part "package:flutter_nes/cpu_instructions.dart";
 
-const double CPU_FREQUENCY = 1789773; // Hz
-
 // emualtor for 6502 CPU
 class CPU {
   CPU(this.bus);
@@ -620,7 +618,8 @@ class CPU {
       nextBytes[n] = bus.cardtridge.readPRG(_regPC + n + 1 - 0x8000);
     }
 
-    debugLog("${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex(2)}");
+    debugLog(
+        "${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex(2)}");
 
     return emulate(op);
   }

@@ -7,6 +7,7 @@ import "package:flutter_nes/cpu.dart";
 import "package:flutter_nes/ppu.dart";
 import "package:flutter_nes/bus.dart";
 import "package:flutter_nes/memory.dart";
+import "package:flutter_nes/event_bus.dart";
 
 // the Console
 class NesEmulator {
@@ -22,6 +23,8 @@ class NesEmulator {
     bus.cardtridge = cardtridge;
   }
 
+  EventBus _eventBus = EventBus();
+
   BUS bus = BUS();
 
   CPU cpu;
@@ -35,36 +38,51 @@ class NesEmulator {
   Memory ppuPalettes = Memory(0x20);
   Cardtridge cardtridge = Cardtridge();
 
+  int _ppuCostCycles = 0;
+
   // load nes rom data
   loadGame(Uint8List data) => cardtridge.load(data);
 
-  _tick() {
-    int cycles = cpu.tick();
+  _tickLoop() async {
+    for (;;) {
+      int cycles = cpu.tick();
+      int ppuCycles = cycles * 3;
+      _ppuCostCycles += ppuCycles;
 
-    for (int i = cycles * 3; i >= 0; i--) {
-      ppu.tick();
+      for (int i = ppuCycles; i >= 0; i--) {
+        ppu.tick();
+      }
+
+      if (_ppuCostCycles >= CYCLES_PER_SCANLINE * SCANLINES_PER_FRAME) {
+        _eventBus.emit('FrameDone', ppu.frame);
+
+        _ppuCostCycles = 0;
+
+        await Future.delayed(Duration(milliseconds: 16));
+      }
     }
-
-    int ms = (cycles / CPU_FREQUENCY * 1e6).round();
-    Future.delayed(Duration(microseconds: ms), _tick);
   }
 
-  onFrameDone(FrameDoneCallback cb) {
-    ppu.frameDoneCbs.add(cb);
+  on(String eventName, EventCallback f) {
+    _eventBus.on(eventName, f);
+  }
+
+  off(String eventName, [EventCallback f]) {
+    _eventBus.off(eventName, f);
   }
 
   powerOn() {
     cpu.powerOn();
     ppu.powerOn();
 
-    _tick();
+    _tickLoop();
   }
 
   reset() {
     cpu.reset();
     ppu.reset();
-    cpuWorkRAM.reset();
-    ppuVideoRAM.reset();
-    ppuPalettes.reset();
+    cpuWorkRAM.clear();
+    ppuVideoRAM.clear();
+    ppuPalettes.clear();
   }
 }
