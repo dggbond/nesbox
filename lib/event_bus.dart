@@ -30,3 +30,6 @@ class EventBus {
     }
   }
 }
+
+EventBus outerBus = EventBus();
+EventBus innerBus = EventBus();

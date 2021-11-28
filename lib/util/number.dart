@@ -1,5 +1,3 @@
-import "dart:io" show Platform;
-
 extension IntUtil on int {
   String toHex([int len = 4]) {
     return "\$" + this.toUnsigned(16).toRadixString(16).padLeft(len, "0");
@@ -29,6 +27,10 @@ extension IntUtil on int {
   int getZeroBit() {
     return this == 0 ? 1 : 0;
   }
+
+  bool inRange(int start, int end) {
+    return this >= start && this <= end;
+  }
 }
 
 extension IntListUtil on List<int> {
@@ -53,10 +55,4 @@ extension IntListUtil on List<int> {
 // one page is 8-bit size;
 bool isPageCrossed(int addr1, int addr2) {
   return addr1 & 0xff00 != addr2 & 0xff00;
-}
-
-void debugLog(String message) {
-  if (Platform.environment.containsKey("NES_DEBUG")) {
-    print(message);
-  }
 }

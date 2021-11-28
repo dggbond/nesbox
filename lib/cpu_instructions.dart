@@ -1,5 +1,3 @@
-part of "package:flutter_nes/cpu.dart";
-
 // see: https://wiki.nesdev.com/w/index.php/CPU_addressing_modes
 enum AddrMode {
   // the comment is the abbr.
@@ -135,7 +133,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x7d: Op(Instr.ADC, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x79: Op(Instr.ADC, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0x61: Op(Instr.ADC, AddrMode.IndexedIndirect, 2, 6),
-  0x71: Op(Instr.ADC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0x71: Op(
+      Instr.ADC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x29: Op(Instr.AND, AddrMode.Immediate, 2, 2),
   0x25: Op(Instr.AND, AddrMode.ZeroPage, 2, 3),
@@ -144,7 +143,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x3d: Op(Instr.AND, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x39: Op(Instr.AND, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0x21: Op(Instr.AND, AddrMode.IndexedIndirect, 2, 6),
-  0x31: Op(Instr.AND, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0x31: Op(
+      Instr.AND, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x0a: Op(Instr.ASL, AddrMode.Accumulator, 1, 2),
   0x06: Op(Instr.ASL, AddrMode.ZeroPage, 2, 5),
@@ -152,26 +152,34 @@ const Map<int, Op> NES_CPU_OPS = {
   0x0e: Op(Instr.ASL, AddrMode.Absolute, 3, 6),
   0x1e: Op(Instr.ASL, AddrMode.AbsoluteX, 3, 7),
 
-  0x90: Op(Instr.BCC, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0x90: Op(Instr.BCC, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0xb0: Op(Instr.BCS, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0xb0: Op(Instr.BCS, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0xf0: Op(Instr.BEQ, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0xf0: Op(Instr.BEQ, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
   0x24: Op(Instr.BIT, AddrMode.ZeroPage, 2, 3),
   0x2c: Op(Instr.BIT, AddrMode.Absolute, 3, 4),
 
-  0x30: Op(Instr.BMI, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0x30: Op(Instr.BMI, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0xd0: Op(Instr.BNE, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0xd0: Op(Instr.BNE, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0x10: Op(Instr.BPL, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0x10: Op(Instr.BPL, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
   0x00: Op(Instr.BRK, AddrMode.Implied, 1, 7),
 
-  0x50: Op(Instr.BVC, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0x50: Op(Instr.BVC, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
-  0x70: Op(Instr.BVS, AddrMode.Relative, 2, 2), // cycles +1 if branch succeeds +2 if to a new page
+  0x70: Op(Instr.BVS, AddrMode.Relative, 2,
+      2), // cycles +1 if branch succeeds +2 if to a new page
 
   0x18: Op(Instr.CLC, AddrMode.Implied, 1, 2),
 
@@ -188,7 +196,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0xdd: Op(Instr.CMP, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xd9: Op(Instr.CMP, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0xc1: Op(Instr.CMP, AddrMode.IndexedIndirect, 2, 6),
-  0xd1: Op(Instr.CMP, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0xd1: Op(
+      Instr.CMP, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xe0: Op(Instr.CPX, AddrMode.Immediate, 2, 2),
   0xe4: Op(Instr.CPX, AddrMode.ZeroPage, 2, 3),
@@ -214,7 +223,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x5d: Op(Instr.EOR, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x59: Op(Instr.EOR, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0x41: Op(Instr.EOR, AddrMode.IndexedIndirect, 2, 6),
-  0x51: Op(Instr.EOR, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0x51: Op(
+      Instr.EOR, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xe6: Op(Instr.INC, AddrMode.ZeroPage, 2, 5),
   0xf6: Op(Instr.INC, AddrMode.ZeroPageX, 2, 6),
@@ -237,7 +247,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0xbd: Op(Instr.LDA, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xb9: Op(Instr.LDA, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0xa1: Op(Instr.LDA, AddrMode.IndexedIndirect, 2, 6),
-  0xb1: Op(Instr.LDA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0xb1: Op(
+      Instr.LDA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0xa2: Op(Instr.LDX, AddrMode.Immediate, 2, 2),
   0xa6: Op(Instr.LDX, AddrMode.ZeroPage, 2, 3),
@@ -272,7 +283,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x1d: Op(Instr.ORA, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0x19: Op(Instr.ORA, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0x01: Op(Instr.ORA, AddrMode.IndexedIndirect, 2, 6),
-  0x11: Op(Instr.ORA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0x11: Op(
+      Instr.ORA, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x48: Op(Instr.PHA, AddrMode.Implied, 1, 3),
 
@@ -305,7 +317,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0xfd: Op(Instr.SBC, AddrMode.AbsoluteX, 3, 4), // cycles +1 if page crossed
   0xf9: Op(Instr.SBC, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0xe1: Op(Instr.SBC, AddrMode.IndexedIndirect, 2, 6),
-  0xf1: Op(Instr.SBC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0xf1: Op(
+      Instr.SBC, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x38: Op(Instr.SEC, AddrMode.Implied, 1, 2),
 
@@ -355,12 +368,14 @@ const Map<int, Op> NES_CPU_OPS = {
   0xaf: Op(Instr.LAX, AddrMode.Absolute, 3, 4),
   0xbf: Op(Instr.LAX, AddrMode.AbsoluteY, 3, 4), // cycles +1 if page crossed
   0xa3: Op(Instr.LAX, AddrMode.IndexedIndirect, 2, 6),
-  0xb3: Op(Instr.LAX, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
+  0xb3: Op(
+      Instr.LAX, AddrMode.IndirectIndexed, 2, 5), // cycles +1 if page crossed
 
   0x87: Op(Instr.SAX, AddrMode.ZeroPage, 2, 3),
   0x97: Op(Instr.SAX, AddrMode.ZeroPageY, 2, 4),
   0x8f: Op(Instr.SAX, AddrMode.Absolute, 3, 4),
-  0x83: Op(Instr.SAX, AddrMode.IndexedIndirect, 2, 6), // cycles +1 if page crossed
+  0x83: Op(
+      Instr.SAX, AddrMode.IndexedIndirect, 2, 6), // cycles +1 if page crossed
 
   0xc7: Op(Instr.DCP, AddrMode.ZeroPage, 2, 5),
   0xd7: Op(Instr.DCP, AddrMode.ZeroPageX, 2, 6),
@@ -368,7 +383,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0xdf: Op(Instr.DCP, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0xdb: Op(Instr.DCP, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0xc3: Op(Instr.DCP, AddrMode.IndexedIndirect, 2, 8),
-  0xd3: Op(Instr.DCP, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0xd3: Op(
+      Instr.DCP, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0xe7: Op(Instr.ISC, AddrMode.ZeroPage, 2, 5),
   0xf7: Op(Instr.ISC, AddrMode.ZeroPageX, 2, 6),
@@ -376,7 +392,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0xff: Op(Instr.ISC, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0xfb: Op(Instr.ISC, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0xe3: Op(Instr.ISC, AddrMode.IndexedIndirect, 2, 8),
-  0xf3: Op(Instr.ISC, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0xf3: Op(
+      Instr.ISC, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0x27: Op(Instr.RLA, AddrMode.ZeroPage, 2, 5),
   0x37: Op(Instr.RLA, AddrMode.ZeroPageX, 2, 6),
@@ -384,7 +401,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x3f: Op(Instr.RLA, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0x3b: Op(Instr.RLA, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0x23: Op(Instr.RLA, AddrMode.IndexedIndirect, 2, 8),
-  0x33: Op(Instr.RLA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0x33: Op(
+      Instr.RLA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0x67: Op(Instr.RRA, AddrMode.ZeroPage, 2, 5),
   0x77: Op(Instr.RRA, AddrMode.ZeroPageX, 2, 6),
@@ -392,7 +410,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x7f: Op(Instr.RRA, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0x7b: Op(Instr.RRA, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0x63: Op(Instr.RRA, AddrMode.IndexedIndirect, 2, 8),
-  0x73: Op(Instr.RRA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0x73: Op(
+      Instr.RRA, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0x07: Op(Instr.SLO, AddrMode.ZeroPage, 2, 5),
   0x17: Op(Instr.SLO, AddrMode.ZeroPageX, 2, 6),
@@ -400,7 +419,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x1f: Op(Instr.SLO, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0x1b: Op(Instr.SLO, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0x03: Op(Instr.SLO, AddrMode.IndexedIndirect, 2, 8),
-  0x13: Op(Instr.SLO, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0x13: Op(
+      Instr.SLO, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0x47: Op(Instr.SRE, AddrMode.ZeroPage, 2, 5),
   0x57: Op(Instr.SRE, AddrMode.ZeroPageX, 2, 6),
@@ -408,7 +428,8 @@ const Map<int, Op> NES_CPU_OPS = {
   0x5f: Op(Instr.SRE, AddrMode.AbsoluteX, 3, 7), // cycles +1 if page crossed
   0x5b: Op(Instr.SRE, AddrMode.AbsoluteY, 3, 7), // cycles +1 if page crossed
   0x43: Op(Instr.SRE, AddrMode.IndexedIndirect, 2, 8),
-  0x53: Op(Instr.SRE, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
+  0x53: Op(
+      Instr.SRE, AddrMode.IndirectIndexed, 2, 8), // cycles +1 if page crossed
 
   0x80: Op(Instr.SKB, AddrMode.Immediate, 2, 2),
   0x82: Op(Instr.SKB, AddrMode.Immediate, 2, 2),

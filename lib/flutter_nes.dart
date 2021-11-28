@@ -2,12 +2,15 @@ library flutter_nes;
 
 import "dart:typed_data";
 
-import 'package:flutter_nes/cartridge.dart';
-import "package:flutter_nes/cpu.dart";
-import "package:flutter_nes/ppu.dart";
-import "package:flutter_nes/bus.dart";
-import "package:flutter_nes/memory.dart";
-import "package:flutter_nes/event_bus.dart";
+import 'cartridge.dart';
+import "cpu.dart";
+import "ppu.dart";
+import "bus.dart";
+import "memory.dart";
+import "event_bus.dart";
+import 'util/logger.dart';
+import 'util/throttle.dart';
+import 'frame.dart';
 
 // the Console
 class NesEmulator {
@@ -23,8 +26,6 @@ class NesEmulator {
     bus.cardtridge = cardtridge;
   }
 
-  EventBus _eventBus = EventBus();
-
   BUS bus = BUS();
 
   CPU cpu;
@@ -38,44 +39,62 @@ class NesEmulator {
   Memory ppuPalettes = Memory(0x20);
   Cardtridge cardtridge = Cardtridge();
 
-  int _ppuCostCycles = 0;
+  int targetFps = 60;
+  double fps = 60.0;
+  DateTime _lastFrameAt;
 
   // load nes rom data
   loadGame(Uint8List data) => cardtridge.load(data);
 
-  _tickLoop() async {
+  // get one frame
+  Frame _frame() {
+    Frame frame;
+
     for (;;) {
-      int cycles = cpu.tick();
-      int ppuCycles = cycles * 3;
-      _ppuCostCycles += ppuCycles;
+      int cpuCycles = cpu.tick();
+      int ppuCycles = cpuCycles * 3;
 
-      for (int i = ppuCycles; i >= 0; i--) {
+      while (ppuCycles-- > 0) {
         ppu.tick();
+
+        if (ppu.frameCompleted) {
+          frame = ppu.frame;
+        }
       }
 
-      if (_ppuCostCycles >= CYCLES_PER_SCANLINE * SCANLINES_PER_FRAME) {
-        _eventBus.emit('FrameDone', ppu.frame);
-
-        _ppuCostCycles = 0;
-
-        await Future.delayed(Duration(milliseconds: 16));
-      }
+      if (frame != null) return frame;
     }
   }
 
+  _frameLoop() async {
+    var frameEmitter = new Throttle(() {
+      _updateFps();
+      outerBus.emit('FrameDone', _frame());
+    }, 10);
+    frameEmitter.loop();
+  }
+
+  _updateFps() {
+    DateTime now = DateTime.now();
+    if (_lastFrameAt != null) {
+      fps = 1000 / now.difference(_lastFrameAt).inMilliseconds;
+    }
+    _lastFrameAt = now;
+  }
+
   on(String eventName, EventCallback f) {
-    _eventBus.on(eventName, f);
+    outerBus.on(eventName, f);
   }
 
   off(String eventName, [EventCallback f]) {
-    _eventBus.off(eventName, f);
+    outerBus.off(eventName, f);
   }
 
   powerOn() {
     cpu.powerOn();
     ppu.powerOn();
 
-    _tickLoop();
+    _frameLoop();
   }
 
   reset() {

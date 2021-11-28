@@ -4,7 +4,7 @@ A nes emulator written in dart without dependencies.
 ## Demo App
 this dart package has **no other dependencies** at all, all of codes is written in the [`lib`](lib) folder.
 so you can't see the game graphics if you just only run this package. if you want to see the actual effect of this emulator.
-you can run the demo project [flutter_nes_app](https://github.com/mao0613/flutter_nes_app)
+you can run the demo project [Fico](https://github.com/tilemoon/Fico)
 
 ## Getting Started
 there is no package published yet.
