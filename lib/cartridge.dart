@@ -1,7 +1,7 @@
 import "dart:typed_data";
 
-import "package:flutter_nes/util.dart";
-import "package:flutter_nes/memory.dart";
+import "memory.dart";
+import 'util/number.dart';
 
 const int PRG_BANK_SIZE = 0x4000;
 const int CHR_BANK_SIZE = 0x2000;

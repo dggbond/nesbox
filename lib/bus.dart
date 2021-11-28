@@ -1,10 +1,10 @@
 import 'dart:typed_data';
 
-import 'package:flutter_nes/cartridge.dart';
-import 'package:flutter_nes/cpu.dart';
-import 'package:flutter_nes/ppu.dart';
-import 'package:flutter_nes/memory.dart';
-import 'package:flutter_nes/util.dart';
+import 'cartridge.dart';
+import 'cpu.dart';
+import 'ppu.dart';
+import 'memory.dart';
+import 'util/number.dart';
 
 // bus is used to communiate between hardwares
 class BUS {
@@ -19,10 +19,6 @@ class BUS {
 
   int cpuRead(int address) {
     address &= 0xffff;
-
-    if (address < 0x2000) {
-      debugLog("cpu read ${cpuRAM.read(address % 0x800).toHex(2)} from ${address.toHex()}");
-    }
 
     // [0x0000, 0x0800] is RAM, [0x0800, 0x02000] is mirrors
     if (address < 0x2000) return cpuRAM.read(address % 0x800);
@@ -70,7 +66,6 @@ class BUS {
   void cpuWrite(int address, int value) {
     address &= 0xffff;
 
-    debugLog("CPU write ${value.toHex(2)} to address ${address.toHex()}");
     // write work RAM
     if (address < 0x800) {
       return cpuRAM.write(address, value);
@@ -193,15 +188,12 @@ class BUS {
     for (int i = 0; i < bankSize; i++) {
       data[i] = ppuRead(address + i);
     }
-    debugLog("PPU read bank ${data.toHex()} from address ${address.toHex()}");
 
     return data;
   }
 
   void ppuWrite(int address, int value) {
     address &= 0xffff;
-
-    debugLog("PPU write ${value.toHex(2)} to address ${address.toHex()}");
 
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) return cardtridge.writeCHR(address, value);
@@ -210,13 +202,15 @@ class BUS {
     if (address < 0x3000) return ppuRAM.write(address - 0x2000, value);
 
     // NameTables Mirrors
-    if (address < 0x3f00) return ppuWrite(0x2000 + (address - 0x3000) % 0xf00, value);
+    if (address < 0x3f00)
+      return ppuWrite(0x2000 + (address - 0x3000) % 0xf00, value);
 
     // Palettes
     if (address < 0x3f20) return ppuPalettes.write(address - 0x3f00, value);
 
     // Palettes Mirrors
-    if (address < 0x4000) return ppuWrite(0x3f00 + (address - 0x3f20) % 0x20, value);
+    if (address < 0x4000)
+      return ppuWrite(0x3f00 + (address - 0x3f20) % 0x20, value);
 
     // whole Mirrors
     if (address < 0x10000) return ppuWrite(address % 0x4000, value);

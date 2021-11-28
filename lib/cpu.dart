@@ -1,11 +1,6 @@
-import "dart:typed_data";
-
-import "package:flutter_nes/util.dart";
-import 'package:flutter_nes/bus.dart';
-
-part "package:flutter_nes/cpu_instructions.dart";
-
-const double CPU_FREQUENCY = 1789773; // Hz
+import 'cpu_instructions.dart';
+import 'bus.dart';
+import 'util/number.dart';
 
 // emualtor for 6502 CPU
 class CPU {
@@ -17,7 +12,7 @@ class CPU {
   // see https://en.wikipedia.org/wiki/MOS_Technology_6502#Registers
   int _regPC; // Program Counter, the only 16-bit register, others are 8-bit
   int _regS; // Stack Pointer register, 8-bit
-  int _regP; // Processor Status register, 8-bit
+  int _regPS; // Processor Status register, 8-bit
   int _regA; // Accumulator register, 8-bit
   int _regX; // Index register, used for indexed addressing mode, 8-bit
   int _regY; // Index register, 8-bit
@@ -184,7 +179,7 @@ class CPU {
 
       case Instr.BRK:
         _pushStack16Bit(_regPC + 1);
-        _pushStack(_regP);
+        _pushStack(_regPS);
 
         _setInterruptDisableFlag(1);
         _setBreakCommandFlag(1);
@@ -360,7 +355,7 @@ class CPU {
         break;
 
       case Instr.PHP:
-        _pushStack(_regP);
+        _pushStack(_regPS);
         break;
 
       case Instr.PLA:
@@ -371,7 +366,7 @@ class CPU {
         break;
 
       case Instr.PLP:
-        _regP = _popStack();
+        _regPS = _popStack();
         break;
 
       case Instr.ROL:
@@ -405,7 +400,7 @@ class CPU {
         break;
 
       case Instr.RTI:
-        _regP = _popStack();
+        _regPS = _popStack();
         _regPC = _popStack16Bit();
 
         _setInterruptDisableFlag(0);
@@ -573,9 +568,8 @@ class CPU {
   int tick() {
     switch (interrupt) {
       case Interrupt.NMI:
-        debugLog("cpu nmi handled.");
         _pushStack16Bit(_regPC);
-        _pushStack(_regP);
+        _pushStack(_regPS);
 
         // Set the interrupt disable flag to prevent further interrupts.
         _setInterruptDisableFlag(1);
@@ -590,7 +584,7 @@ class CPU {
         if (_getInterruptDisableFlag() == 1) break;
 
         _pushStack16Bit(_regPC);
-        _pushStack(_regP);
+        _pushStack(_regPS);
 
         _setInterruptDisableFlag(1);
         _setBreakCommandFlag(0);
@@ -614,32 +608,24 @@ class CPU {
       throw ("${opcode.toHex(2)} is unknown instruction at rom address ${_regPC.toHex()}");
     }
 
-    Uint8List nextBytes = Uint8List(op.bytes - 1);
-
-    for (int n = 0; n < op.bytes - 1; n++) {
-      nextBytes[n] = bus.cardtridge.readPRG(_regPC + n + 1 - 0x8000);
-    }
-
-    debugLog("${_getStatusOfAllRegisters()} ${opcode.toHex(2)} ${op.name} ${nextBytes.toHex(2)}");
-
     return emulate(op);
   }
 
-  int _getCarryFlag() => _regP.getBit(0);
-  int _getZeroFlag() => _regP.getBit(1);
-  int _getInterruptDisableFlag() => _regP.getBit(2);
-  // int _getDecimalModeFlag() => _regP.getBit(3); // decimal mode flag is not used
-  int _getBreakCommandFlag() => _regP.getBit(4);
-  int _getOverflowFlag() => _regP.getBit(6);
-  int _getNegativeFlag() => _regP.getBit(7);
+  int _getCarryFlag() => _regPS.getBit(0);
+  int _getZeroFlag() => _regPS.getBit(1);
+  int _getInterruptDisableFlag() => _regPS.getBit(2);
+  int _getDecimalModeFlag() => _regPS.getBit(3);
+  int _getBreakCommandFlag() => _regPS.getBit(4);
+  int _getOverflowFlag() => _regPS.getBit(6);
+  int _getNegativeFlag() => _regPS.getBit(7);
 
-  void _setCarryFlag(int value) => _regP = _regP.setBit(0, value);
-  void _setZeroFlag(int value) => _regP = _regP.setBit(1, value);
-  void _setInterruptDisableFlag(int value) => _regP = _regP.setBit(2, value);
-  void _setDecimalModeFlag(int value) => _regP = _regP.setBit(3, value);
-  void _setBreakCommandFlag(int value) => _regP = _regP.setBit(4, value);
-  void _setOverflowFlag(int value) => _regP = _regP.setBit(6, value);
-  void _setNegativeFlag(int value) => _regP = _regP.setBit(7, value);
+  void _setCarryFlag(int value) => _regPS = _regPS.setBit(0, value);
+  void _setZeroFlag(int value) => _regPS = _regPS.setBit(1, value);
+  void _setInterruptDisableFlag(int value) => _regPS = _regPS.setBit(2, value);
+  void _setDecimalModeFlag(int value) => _regPS = _regPS.setBit(3, value);
+  void _setBreakCommandFlag(int value) => _regPS = _regPS.setBit(4, value);
+  void _setOverflowFlag(int value) => _regPS = _regPS.setBit(6, value);
+  void _setNegativeFlag(int value) => _regPS = _regPS.setBit(7, value);
 
   // stack works top-down, see NESDoc page 12.
   _pushStack(int value) {
@@ -676,33 +662,15 @@ class CPU {
     _regS = 0xfd;
 
     _setInterruptDisableFlag(1);
-
-    // TODO APU register reset
   }
 
   // CPU power-up state see: https://wiki.nesdev.com/w/index.php/CPU_power_up_state
   void powerOn() {
     _regPC = bus.cpuRead16Bit(0xfffc);
-    _regP = 0x34;
+    _regPS = 0x34;
     _regS = 0xfd;
     _regA = 0x00;
     _regX = 0x00;
     _regY = 0x00;
-  }
-}
-
-extension DebugExtension on CPU {
-  String _getStatusOfAllRegisters() {
-    return "C:${_getCarryFlag()}" +
-        " Z:${_getZeroFlag()}" +
-        " I:${_getInterruptDisableFlag()}" +
-        " B:${_getBreakCommandFlag()}" +
-        " O:${_getOverflowFlag()}" +
-        " N:${_getNegativeFlag()}" +
-        " PC:${_regPC.toHex()}" +
-        " S:${_regS.toHex(2)}" +
-        " A:${_regA.toHex(2)}" +
-        " X:${_regX.toHex(2)}" +
-        " Y:${_regY.toHex(2)}";
   }
 }

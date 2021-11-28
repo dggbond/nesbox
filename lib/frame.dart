@@ -1,33 +1,26 @@
+import 'dart:typed_data';
+import 'palette.dart';
+
 /* Frame
- * one Frame is two-dimensional int array which int mean the pixel color.
- * so one Frame output a 256x240 two-dimensional array.
+ * one Frame is and int8 array, every pixel takes 4 element as R G B A.
 */
-
-typedef FrameForEachPixelCallback(int x, int y, int color);
-
 class Frame {
   Frame() {
-    _pixels = List.generate(height, (n) => List.generate(width, (index) => 0xffffffff));
+    pixels = Uint8List(height * width * 4);
   }
 
-  List<List<int>> _pixels;
+  Uint8List pixels;
 
   final int height = 240;
   final int width = 256;
 
-  void setPixel(int x, int y, int color) {
-    _pixels[y][x] = color;
-  }
+  void setPixel(int x, int y, int entry) {
+    int color = NES_SYS_PALETTES[entry];
+    int index = (y * width + x) * 4;
 
-  int getPixel(int x, int y) {
-    return _pixels[y][x];
-  }
-
-  void forEachPixel(FrameForEachPixelCallback fn) {
-    for (int y = 0; y < height; y++) {
-      for (int x = 0; x < width; x++) {
-        fn(x, y, _pixels[y][x]);
-      }
-    }
+    pixels[index] = color >> 16 & 0xff;
+    pixels[index + 1] = color >> 8 & 0xff;
+    pixels[index + 2] = color & 0xff;
+    pixels[index + 3] = 0xff;
   }
 }
