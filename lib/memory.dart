@@ -5,13 +5,9 @@ class Memory {
 
   final Uint8List _mem;
 
-  int read(int address) => _mem.elementAt(address);
+  int read(int address) => _mem[address];
 
-  void write(int address, int value) {
-    _mem[address] = value;
-  }
+  write(int address, int value) => _mem[address] = value;
 
-  void clear() {
-    _mem.fillRange(0, _mem.length, 0x00);
-  }
+  clear() => _mem.fillRange(0, _mem.length, 0x00);
 }

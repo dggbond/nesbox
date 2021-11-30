@@ -1,153 +1,157 @@
-import 'dart:typed_data';
-
 import 'bus.dart';
 import 'cpu_instructions.dart' show Interrupt;
 import 'memory.dart';
 import 'util/number.dart';
 import 'util/logger.dart';
 import 'frame.dart';
-import 'palette.dart';
 
 const int CYCLES_PER_SCANLINE = 341;
 const int SCANLINES_PER_FRAME = 262;
 
+class Pos {
+  Pos(this.x, this.y);
+
+  int x;
+  int y;
+}
+
 class PPU {
-  PPU(this.bus);
+  PPU();
 
   BUS bus;
 
-  // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPU_registers
+  // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPUregisters
   // Controller ($2000) > write
-  int _regCTRL;
+  int regCTRL;
   int get baseNTAddress => {
         0: 0x2000,
         1: 0x2400,
         2: 0x2800,
         3: 0x2c00,
-      }[_regCTRL & 0x03];
+      }[regCTRL & 0x03];
   int get baseATAddress => baseNTAddress + 0x3c0;
   int get backgroundPTAddress => {
         0: 0x0000,
         1: 0x1000,
-      }[_regCTRL.getBit(4)];
-  int get addrStepSize => _regCTRL.getBit(3) == 1 ? 32 : 1;
-  bool get enableNMI => _regCTRL.getBit(7) == 1;
+      }[regCTRL.getBit(4)];
+  int get addrStepSize => regCTRL.getBit(3) == 1 ? 32 : 1;
+  bool get enableNMI => regCTRL.getBit(7) == 1;
 
-  void setPPUCTRL(int value) => _regCTRL = value & 0xff;
-  int getPPUCTRL() => _regCTRL;
+  void setPPUCTRL(int value) => regCTRL = value & 0xff;
+  int getPPUCTRL() => regCTRL;
 
   // Mask ($2001) > write
-  int _regMASK;
-  bool get greyscaleEnabled => _regMASK.getBit(0) == 1;
-  bool get backgroundLeftRenderEnabled => _regMASK.getBit(1) == 1;
-  bool get spritesLeftRenderEnabled => _regMASK.getBit(2) == 1;
-  bool get backgroundRenderEnabled => _regMASK.getBit(3) == 1;
-  bool get spritesRenderEnabled => _regMASK.getBit(4) == 1;
+  int regMASK;
+  bool get greyscaleEnabled => regMASK.getBit(0) == 1;
+  bool get backgroundLeftRenderEnabled => regMASK.getBit(1) == 1;
+  bool get spritesLeftRenderEnabled => regMASK.getBit(2) == 1;
+  bool get backgroundRenderEnabled => regMASK.getBit(3) == 1;
+  bool get spritesRenderEnabled => regMASK.getBit(4) == 1;
 
-  void setPPUMASK(int value) => _regMASK = value & 0xff;
-  int getPPUMASK() => _regMASK;
+  void setPPUMASK(int value) => regMASK = value & 0xff;
+  int getPPUMASK() => regMASK;
 
   // Status ($2002) < read
-  int _regSTATUS;
-  bool get verticalBlanking => _regSTATUS.getBit(7) == 1;
-  bool get spriteHit => _regSTATUS.getBit(6) == 1;
-  bool get spriteOverflow => _regSTATUS.getBit(5) == 1;
+  int regSTATUS;
+  bool get verticalBlanking => regSTATUS.getBit(7) == 1;
+  bool get spriteHit => regSTATUS.getBit(6) == 1;
+  bool get spriteOverflow => regSTATUS.getBit(5) == 1;
 
   int getPPUSTATUS() {
     // Reading the status register will clear bit 7 and address latch for PPUSCROLL and PPUADDR
-    int val = _regSTATUS;
+    int val = regSTATUS;
     _scrollWriteUpper = true;
     _addrWriteUpper = true;
-    _regSTATUS = _regSTATUS.setBit(7, 0);
+    regSTATUS = regSTATUS.setBit(7, 0);
 
     return val;
   }
 
   // OAM address ($2003) > write
-  int _regOAMADDR;
+  int regOAMADDR;
 
-  void setOAMADDR(int value) => _regOAMADDR = value;
-  int getOAMADDR() => _regOAMADDR;
+  void setOAMADDR(int value) => regOAMADDR = value;
+  int getOAMADDR() => regOAMADDR;
 
   // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
   Memory _spriteRAM = Memory(0xff);
 
-  int getOAMDATA() => _spriteRAM.read(_regOAMADDR);
-  void setOAMDATA(int value) => _spriteRAM.write(_regOAMADDR++, value);
+  int getOAMDATA() => _spriteRAM.read(regOAMADDR);
+  void setOAMDATA(int value) => _spriteRAM.write(regOAMADDR++, value);
 
   // Scroll ($2005) >> write x2
   // upper byte mean x scroll.
   // lower byte mean y scroll.
-  int _regSCROLL; // 16-bit
+  int regSCROLL; // 16-bit
 
   // 0: write PPUSCROLL upper bits, 1: write lower bits
   bool _scrollWriteUpper = true;
-  int get scrollX => _regSCROLL & 0xf0 >> 4;
-  int get scrollY => _regSCROLL & 0xf;
+  int get scrollX => regSCROLL & 0xf0 >> 4;
+  int get scrollY => regSCROLL & 0xf;
 
   void setPPUSCROLL(int value) {
     if (_scrollWriteUpper) {
-      _regSCROLL = (_regSCROLL & 0xff) | value << 8;
+      regSCROLL = (regSCROLL & 0xff) | value << 8;
     } else {
-      _regSCROLL = (_regSCROLL & 0xff00) | value;
+      regSCROLL = (regSCROLL & 0xff00) | value;
     }
     _scrollWriteUpper = !_scrollWriteUpper;
   }
 
   // VRAM Address ($2006) >> write x2, 16-bit
-  int _regADDR;
+  int regADDR;
 
   // VRAM temporary address, used in PPU
-  int _regTMPADDR;
+  int regTMPADDR;
 
   // 0: write PPUADDR upper bits, 1: write lower bits
   bool _addrWriteUpper = true;
 
   void setPPUADDR(int value) {
     if (_addrWriteUpper) {
-      _regADDR = (_regADDR & 0xff) | value << 8;
+      regADDR = (regADDR & 0xff) | value << 8;
     } else {
-      _regADDR = (_regADDR & 0xff00) | value;
+      regADDR = (regADDR & 0xff00) | value;
     }
     _addrWriteUpper = !_addrWriteUpper;
   }
 
-  // see: https://wiki.nesdev.com/w/index.php/PPU_registers#The_PPUDATA_read_buffer_.28post-fetch.29
+  // see: https://wiki.nesdev.com/w/index.php/PPUregisters#The_PPUDATA_read_buffer_.28post-fetch.29
   // the first result should be discard when CPU reading PPUDATA
   int _ppuDataBuffer = 0x00;
 
   // Data ($2007) <> read/write
   // this is the port that CPU read/write data via VRAM.
   int getPPUDATA() {
-    int vramData = bus.ppuRead(_regADDR);
+    int vramData = bus.ppuRead(regADDR);
     int value;
 
-    if (_regADDR % 0x4000 < 0x3f00) {
+    if (regADDR % 0x4000 < 0x3f00) {
       value = _ppuDataBuffer;
       _ppuDataBuffer = vramData; // update data buffer with vram data
     } else {
       // when reading palttes, the buffer data is the mirrored nametable data that would appear "underneath" the palette.
       value = vramData;
-      _ppuDataBuffer = bus.ppuRead(_regADDR - 0x1000);
+      _ppuDataBuffer = bus.ppuRead(regADDR - 0x1000);
     }
 
-    _regADDR += addrStepSize;
+    regADDR += addrStepSize;
     return value;
   }
 
   void setPPUDATA(int value) {
-    bus.ppuWrite(_regADDR, value);
+    bus.ppuWrite(regADDR, value);
 
-    _regADDR += addrStepSize;
+    regADDR += addrStepSize;
   }
 
   // OAM DMA ($4014) > write
   void setOAMDMA(int value) {
     int page = value << 8;
 
-    int oamAddr = _regOAMADDR;
+    int oamAddr = regOAMADDR;
     for (int i = 0; i < 0xff; i++) {
       _spriteRAM.write(oamAddr + i, bus.cpuRead(page + i));
     }
@@ -169,13 +173,23 @@ class PPU {
 
   Frame frame = Frame();
 
+  Pos _getXYWhenFetching() {
+    int x = cycle - 1, y = scanline;
+
+    // for next scanline
+    if (cycle >= 321 && cycle <= 336) {
+      x = 0;
+      y += 1;
+    }
+
+    return Pos(x, y);
+  }
+
   _renderPixel() {
     int x = cycle - 1, y = scanline;
-    // this is background render
 
-    int paletteEntry = (_AT4Bit & 0x3) << 2 |
-        _highBGTile16Bit.getBit(7 - x % 8) << 1 |
-        _lowBGTile16Bit.getBit(7 - x % 8);
+    int paletteEntry =
+        (_AT4Bit & 0x3) << 2 | _highBGTile16Bit.getBit(7 - x % 8) << 1 | _lowBGTile16Bit.getBit(7 - x % 8);
 
     int paletteNum = bus.ppuRead(0x3f00 + paletteEntry);
 
@@ -184,17 +198,10 @@ class PPU {
 
   _fetchNTByte() {
     int addr = baseNTAddress;
-    int x = cycle - 1;
-    int y = scanline;
-
-    // for next scanline
-    if (cycle >= 321 && cycle <= 336) {
-      x = 0;
-      y += 1;
-    }
+    Pos pos = _getXYWhenFetching();
 
     if (isCycleVisible && isScanLineVisible) {
-      addr += (y / 8).floor() * 32 + (x / 8).floor() + 1;
+      addr += (pos.y / 8).floor() * 32 + (pos.x / 8).floor() + 1;
     }
 
     _NTByte = bus.ppuRead(addr);
@@ -202,19 +209,13 @@ class PPU {
 
   _fetchATByte() {
     int addr = baseNTAddress + 0x3c0;
-    int x = cycle - 1;
-    int y = scanline;
+    Pos pos = _getXYWhenFetching();
 
-    if (cycle >= 321 && cycle <= 336) {
-      x = 0;
-      y += 1;
-    }
-
-    addr += (x / 32).floor() + (y / 32).floor() * 8;
+    addr += (pos.x / 32).floor() + (pos.y / 32).floor() * 8;
     int byte = bus.ppuRead(addr);
 
-    bool isLeft = x % 32 < 16;
-    bool isTop = y % 32 < 16;
+    bool isLeft = pos.x % 32 < 16;
+    bool isTop = pos.y % 32 < 16;
 
     if (!isTop && !isLeft) {
       _AT4Bit |= (byte >> 6 & 0x3) << 2;
@@ -230,23 +231,16 @@ class PPU {
   _fetchLowBGTileByte() {
     // _NTByte is the number of pattern table
     // so every number skit 16bit(8bit low + 8bit high) * number
+    Pos pos = _getXYWhenFetching();
 
-    int y = scanline;
-    if (cycle >= 321 && cycle <= 336) {
-      y += 1;
-    }
-
-    int addr = backgroundPTAddress + _NTByte * 16 + y % 8 + 8;
+    int addr = backgroundPTAddress + _NTByte * 16 + pos.y % 8 + 8;
     _lowBGTile16Bit |= bus.ppuRead(addr) << 8;
   }
 
   _fetchHighBGTileByte() {
-    int y = scanline;
-    if (cycle >= 321 && cycle <= 336) {
-      y += 1;
-    }
+    Pos pos = _getXYWhenFetching();
 
-    int addr = backgroundPTAddress + _NTByte * 16 + y % 8;
+    int addr = backgroundPTAddress + _NTByte * 16 + pos.y % 8;
     _highBGTile16Bit |= bus.ppuRead(addr) << 8;
   }
 
@@ -307,12 +301,12 @@ class PPU {
 
     // OAMADDR is set to 0 during each of ticks 257-320
     if (cycle >= 257 && cycle <= 320) {
-      _regOAMADDR = 0;
+      regOAMADDR = 0;
     }
 
     // start vertical blanking
     if (scanline == 241 && cycle == 1) {
-      _regSTATUS = _regSTATUS.setBit(7, 1);
+      regSTATUS = regSTATUS.setBit(7, 1);
       // trigger a NMI interrupt
       if (enableNMI) {
         bus.cpu.interrupt = Interrupt.NMI;
@@ -321,7 +315,7 @@ class PPU {
 
     if (isScanLinePreRender && frames % 2 == 1) {
       scanline++;
-      _regSTATUS = _regSTATUS.setBit(7, 0);
+      regSTATUS = regSTATUS.setBit(7, 0);
     }
 
     // one Frame is completed.
@@ -329,26 +323,26 @@ class PPU {
       scanline = -1;
       frames++;
       frameCompleted = true;
-      _regSTATUS = _regSTATUS.setBit(7, 0);
+      regSTATUS = regSTATUS.setBit(7, 0);
     } else {
       frameCompleted = false;
     }
   }
 
   void powerOn() {
-    _regCTRL = 0x00;
-    _regMASK = 0x00;
-    _regSTATUS = 0x00;
-    _regOAMADDR = 0x00;
-    _regSCROLL = 0x00;
-    _regADDR = 0x00;
+    regCTRL = 0x00;
+    regMASK = 0x00;
+    regSTATUS = 0x00;
+    regOAMADDR = 0x00;
+    regSCROLL = 0x00;
+    regADDR = 0x00;
   }
 
   void reset() {
-    _regCTRL = 0x00;
-    _regMASK = 0x00;
-    _regSTATUS = _regSTATUS.getBit(7) << 7;
-    _regSCROLL = 0x00;
+    regCTRL = 0x00;
+    regMASK = 0x00;
+    regSTATUS = regSTATUS.getBit(7) << 7;
+    regSCROLL = 0x00;
     _ppuDataBuffer = 0x00;
 
     _scrollWriteUpper = true;

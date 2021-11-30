@@ -5,14 +5,17 @@ import 'palette.dart';
  * one Frame is and int8 array, every pixel takes 4 element as R G B A.
 */
 class Frame {
-  Frame() {
+  Frame({
+    this.width = 256,
+    this.height = 240,
+  }) {
     pixels = Uint8List(height * width * 4);
   }
 
   Uint8List pixels;
 
-  final int height = 240;
-  final int width = 256;
+  int height;
+  int width;
 
   void setPixel(int x, int y, int entry) {
     int color = NES_SYS_PALETTES[entry];

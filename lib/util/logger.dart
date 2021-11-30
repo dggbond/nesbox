@@ -3,7 +3,7 @@ class Logger {
     return DateTime.now().toString();
   }
 
-  void log(String message) {
+  void log(Object message) {
     print('[${_now()}]: ${message}');
   }
 }

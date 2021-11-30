@@ -4,16 +4,25 @@ import 'cartridge.dart';
 import 'cpu.dart';
 import 'ppu.dart';
 import 'memory.dart';
-import 'util/number.dart';
+import 'util/util.dart';
 
 // bus is used to communiate between hardwares
 class BUS {
-  CPU cpu;
-  PPU ppu;
-  Memory cpuRAM; // WRAM for cpu
-  Memory ppuRAM; // VRAM for ppu
-  Memory ppuPalettes;
-  Cardtridge cardtridge;
+  BUS() {
+    cpu.bus = this;
+    ppu.bus = this;
+  }
+
+  CPU cpu = CPU();
+  PPU ppu = PPU();
+  Memory cpuWorkRAM = Memory(0x800);
+
+  // In most case PPU only use 2kb RAM and mirroring the name tables
+  // but when four-screen mirroring it will use an additional 2kb RAM.
+  // In this emulator, i ignore four-screen case, so i just need 2kb RAM.
+  Memory ppuVideoRAM = Memory(0x800);
+  Memory ppuPalettes = Memory(0x20);
+  Cardtridge cardtridge = Cardtridge();
 
   int dmaCycles = 0;
 
@@ -21,7 +30,7 @@ class BUS {
     address &= 0xffff;
 
     // [0x0000, 0x0800] is RAM, [0x0800, 0x02000] is mirrors
-    if (address < 0x2000) return cpuRAM.read(address % 0x800);
+    if (address < 0x2000) return cpuWorkRAM.read(address % 0x800);
 
     // access PPU Registers
     if (address == 0x2000) return ppu.getPPUCTRL();
@@ -68,12 +77,12 @@ class BUS {
 
     // write work RAM
     if (address < 0x800) {
-      return cpuRAM.write(address, value);
+      return cpuWorkRAM.write(address, value);
     }
 
     // access work RAM mirrors
     if (address < 0x2000) {
-      return cpuRAM.write(address % 0x800, value);
+      return cpuWorkRAM.write(address % 0x800, value);
     }
 
     // access PPU Registers
@@ -163,7 +172,7 @@ class BUS {
         }
       }
 
-      return ppuRAM.read(address - 0x2000);
+      return ppuVideoRAM.read(address - 0x2000);
     }
 
     // NameTables Mirrors
@@ -199,18 +208,18 @@ class BUS {
     if (address < 0x2000) return cardtridge.writeCHR(address, value);
 
     // NameTables (RAM)
-    if (address < 0x3000) return ppuRAM.write(address - 0x2000, value);
+    if (address < 0x3000) return ppuVideoRAM.write(address - 0x2000, value);
 
     // NameTables Mirrors
-    if (address < 0x3f00)
-      return ppuWrite(0x2000 + (address - 0x3000) % 0xf00, value);
+    if (address < 0x3f00) return ppuWrite(0x2000 + (address - 0x3000) % 0xf00, value);
 
     // Palettes
-    if (address < 0x3f20) return ppuPalettes.write(address - 0x3f00, value);
+    if (address < 0x3f20) {
+      return ppuPalettes.write(address - 0x3f00, value);
+    }
 
     // Palettes Mirrors
-    if (address < 0x4000)
-      return ppuWrite(0x3f00 + (address - 0x3f20) % 0x20, value);
+    if (address < 0x4000) return ppuWrite(0x3f00 + (address - 0x3f20) % 0x20, value);
 
     // whole Mirrors
     if (address < 0x10000) return ppuWrite(address % 0x4000, value);
