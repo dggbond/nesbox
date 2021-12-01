@@ -1,5 +1,6 @@
 import 'bus.dart';
-import 'cpu_instructions.dart' show Interrupt;
+import 'cpu.dart';
+import 'cartridge.dart' show Mirroring;
 import 'memory.dart';
 import 'util/number.dart';
 import 'util/logger.dart';
@@ -37,7 +38,11 @@ class PPU {
   int get addrStepSize => regCTRL.getBit(3) == 1 ? 32 : 1;
   bool get enableNMI => regCTRL.getBit(7) == 1;
 
-  void setPPUCTRL(int value) => regCTRL = value & 0xff;
+  void setPPUCTRL(int value) {
+    logger.log('set reg ctrl ${value.toHex()}');
+    regCTRL = value & 0xff;
+  }
+
   int getPPUCTRL() => regCTRL;
 
   // Mask ($2001) > write
@@ -125,7 +130,7 @@ class PPU {
   // Data ($2007) <> read/write
   // this is the port that CPU read/write data via VRAM.
   int getPPUDATA() {
-    int vramData = bus.ppuRead(regADDR);
+    int vramData = read(regADDR);
     int value;
 
     if (regADDR % 0x4000 < 0x3f00) {
@@ -134,7 +139,7 @@ class PPU {
     } else {
       // when reading palttes, the buffer data is the mirrored nametable data that would appear "underneath" the palette.
       value = vramData;
-      _ppuDataBuffer = bus.ppuRead(regADDR - 0x1000);
+      _ppuDataBuffer = read(regADDR - 0x1000);
     }
 
     regADDR += addrStepSize;
@@ -142,7 +147,7 @@ class PPU {
   }
 
   void setPPUDATA(int value) {
-    bus.ppuWrite(regADDR, value);
+    write(regADDR, value);
 
     regADDR += addrStepSize;
   }
@@ -153,7 +158,7 @@ class PPU {
 
     int oamAddr = regOAMADDR;
     for (int i = 0; i < 0xff; i++) {
-      _spriteRAM.write(oamAddr + i, bus.cpuRead(page + i));
+      _spriteRAM.write(oamAddr + i, bus.cpu.read(page + i));
     }
   }
 
@@ -179,7 +184,7 @@ class PPU {
     // for next scanline
     if (cycle >= 321 && cycle <= 336) {
       x = 0;
-      y += 1;
+      y++;
     }
 
     return Pos(x, y);
@@ -191,7 +196,7 @@ class PPU {
     int paletteEntry =
         (_AT4Bit & 0x3) << 2 | _highBGTile16Bit.getBit(7 - x % 8) << 1 | _lowBGTile16Bit.getBit(7 - x % 8);
 
-    int paletteNum = bus.ppuRead(0x3f00 + paletteEntry);
+    int paletteNum = read(0x3f00 + paletteEntry);
 
     frame.setPixel(x, y, paletteNum);
   }
@@ -204,7 +209,7 @@ class PPU {
       addr += (pos.y / 8).floor() * 32 + (pos.x / 8).floor() + 1;
     }
 
-    _NTByte = bus.ppuRead(addr);
+    _NTByte = read(addr);
   }
 
   _fetchATByte() {
@@ -212,7 +217,7 @@ class PPU {
     Pos pos = _getXYWhenFetching();
 
     addr += (pos.x / 32).floor() + (pos.y / 32).floor() * 8;
-    int byte = bus.ppuRead(addr);
+    int byte = read(addr);
 
     bool isLeft = pos.x % 32 < 16;
     bool isTop = pos.y % 32 < 16;
@@ -234,14 +239,14 @@ class PPU {
     Pos pos = _getXYWhenFetching();
 
     int addr = backgroundPTAddress + _NTByte * 16 + pos.y % 8 + 8;
-    _lowBGTile16Bit |= bus.ppuRead(addr) << 8;
+    _lowBGTile16Bit |= read(addr) << 8;
   }
 
   _fetchHighBGTileByte() {
     Pos pos = _getXYWhenFetching();
 
     int addr = backgroundPTAddress + _NTByte * 16 + pos.y % 8;
-    _highBGTile16Bit |= bus.ppuRead(addr) << 8;
+    _highBGTile16Bit |= read(addr) << 8;
   }
 
   _updateBGData() {
@@ -252,7 +257,7 @@ class PPU {
 
   _evaluateSprites() {}
 
-  tick() {
+  clock() {
     // every cycle behaivor is here: https://wiki.nesdev.com/w/index.php/PPU_rendering#Line-by-line_timing
 
     if (isCycleVisible && isScanLineVisible) {
@@ -309,7 +314,7 @@ class PPU {
       regSTATUS = regSTATUS.setBit(7, 1);
       // trigger a NMI interrupt
       if (enableNMI) {
-        bus.cpu.interrupt = Interrupt.NMI;
+        bus.cpu.nmi();
       }
     }
 
@@ -329,15 +334,6 @@ class PPU {
     }
   }
 
-  void powerOn() {
-    regCTRL = 0x00;
-    regMASK = 0x00;
-    regSTATUS = 0x00;
-    regOAMADDR = 0x00;
-    regSCROLL = 0x00;
-    regADDR = 0x00;
-  }
-
   void reset() {
     regCTRL = 0x00;
     regMASK = 0x00;
@@ -347,5 +343,103 @@ class PPU {
 
     _scrollWriteUpper = true;
     _addrWriteUpper = true;
+  }
+
+  int read(int address) {
+    address &= 0xffff;
+
+    // CHR-ROM or Pattern Tables
+    if (address < 0x2000) return bus.cardtridge.readCHR(address);
+
+    // NameTables (RAM)
+    if (address < 0x3000) {
+      // horizontal mirroring
+      // [1][1] --> [0x2000][0x2400]
+      // [2][2] --> [0x2800][0x2c00]
+      if (bus.cardtridge.mirroring == Mirroring.Horizontal) {
+        // mirroring to 0x2000 area
+        if (address < 0x2800) {
+          return bus.ppuVideoRAM0.read(address % 0x400);
+        } else {
+          return bus.ppuVideoRAM1.read(address % 0x400);
+        }
+      }
+
+      // vertical mirroring
+      // [1][2] --> [0x2000][0x2400]
+      // [1][2] --> [0x2800][0x2c00]
+      if (bus.cardtridge.mirroring == Mirroring.Vertical) {
+        // mirroring to 0x2000 area
+        if (address < 0x2400 || (address >= 0x2800 && address < 0x2c00)) {
+          return bus.ppuVideoRAM0.read(address % 0x400);
+        } else {
+          return bus.ppuVideoRAM1.read(address % 0x400);
+        }
+      }
+    }
+
+    // NameTables Mirrors
+    if (address < 0x3f00) return read(0x2000 + address % 0x1000);
+
+    // Palettes
+    if (address < 0x3f20) return bus.ppuPalettes.read(address % 0x3f00);
+
+    // Palettes Mirrors
+    if (address < 0x4000) return read(0x3f00 + address % 0x20);
+
+    // whole Mirrors
+    if (address < 0x10000) return read(address % 0x4000);
+
+    throw ("ppu reading: address ${address.toHex()} is over memory map size.");
+  }
+
+  void write(int address, int value) {
+    address &= 0xffff;
+
+    // CHR-ROM or Pattern Tables
+    if (address < 0x2000) return bus.cardtridge.writeCHR(address, value);
+
+    // NameTables (RAM)
+    if (address < 0x3000) {
+      // horizontal mirroring
+      // [1][1] --> [0x2000][0x2400]
+      // [2][2] --> [0x2800][0x2c00]
+      if (bus.cardtridge.mirroring == Mirroring.Horizontal) {
+        // mirroring to 0x2000 area
+        if (address < 0x2800) {
+          return bus.ppuVideoRAM0.write(address % 0x400, value);
+        } else {
+          return bus.ppuVideoRAM1.write(address % 0x400, value);
+        }
+      }
+
+      // vertical mirroring
+      // [1][2] --> [0x2000][0x2400]
+      // [1][2] --> [0x2800][0x2c00]
+      if (bus.cardtridge.mirroring == Mirroring.Vertical) {
+        // mirroring to 0x2000 area
+        if (address < 0x2400 || (address >= 0x2800 && address < 0x2c00)) {
+          return bus.ppuVideoRAM0.write(address % 0x400, value);
+        } else {
+          return bus.ppuVideoRAM1.write(address % 0x400, value);
+        }
+      }
+    }
+
+    // NameTables Mirrors
+    if (address < 0x3f00) return write(0x2000 + address % 0x1000, value);
+
+    // Palettes
+    if (address < 0x3f20) {
+      return bus.ppuPalettes.write(address % 0x3f00, value);
+    }
+
+    // Palettes Mirrors
+    if (address < 0x4000) return write(0x3f00 + (address - 0x3f20) % 0x20, value);
+
+    // whole Mirrors
+    if (address < 0x10000) return write(address % 0x4000, value);
+
+    throw ("cpu writing: address ${address.toHex()} is over memory map size.");
   }
 }

@@ -6,6 +6,11 @@ homepage: https://github.com/mao0613/flutter_nes
 
 environment:
   sdk: ">=2.10.0 <3.0.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+
 dev_dependencies:
   test: ^1.16.8
 

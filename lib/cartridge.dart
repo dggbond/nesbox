@@ -1,11 +1,19 @@
 import "dart:typed_data";
 
 import "memory.dart";
-import 'util/number.dart';
+import 'util/util.dart';
 
 const int PRG_BANK_SIZE = 0x4000;
 const int CHR_BANK_SIZE = 0x2000;
 const int TRAINER_SIZE = 0x0200;
+
+enum Mirroring {
+  Horizontal,
+  Vertical,
+  SingleScreen,
+  FourScreen,
+  None,
+}
 
 class Cardtridge {
   Uint8List prgROM;
@@ -17,9 +25,7 @@ class Cardtridge {
   bool isNES2;
   int mapperNumber;
 
-  // 0: horizontal (vertical arrangement) (CIRAM A10 = PPU A11)
-  // 1: vertical (horizontal arrangement) (CIRAM A10 = PPU A10)
-  int mirroring;
+  Mirroring mirroring;
 
   load(Uint8List data) {
     // parse INES header
@@ -38,7 +44,14 @@ class Cardtridge {
     // header[6]
     int flag6 = data.elementAt(6);
 
-    mirroring = flag6.getBit(0);
+    if (flag6.getBit(3) == 1) {
+      mirroring = Mirroring.FourScreen;
+    } else if (flag6.getBit(0) == 0) {
+      mirroring = Mirroring.Horizontal;
+    } else if (flag6.getBit(0) == 1) {
+      mirroring = Mirroring.Vertical;
+    }
+
     if (flag6.getBit(1) == 1) sRAM = Memory(0x2000);
 
     // header[7]

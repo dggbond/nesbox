@@ -49,6 +49,9 @@ there are some unoffical opcodes in nes program. these docs may help.
 nesfiles:
 - [nesfiles](https://www.nesfiles.com/)
 
+Tests:
+- https://wiki.nesdev.org/w/index.php?title=Emulator_tests#CPU_Tests
+
 ## Other nes emulators
 - [fogleman/nes](https://github.com/fogleman/nes): written in go.
 - [bfirsh/jsnes](https://github.com/bfirsh/jsnes): written in javascript.
