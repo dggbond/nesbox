@@ -51,6 +51,7 @@ nesfiles:
 
 Tests:
 - https://wiki.nesdev.org/w/index.php?title=Emulator_tests#CPU_Tests
+- http://www.qmtpro.com/~nes/misc/
 
 ## Other nes emulators
 - [fogleman/nes](https://github.com/fogleman/nes): written in go.

@@ -1,11 +1,11 @@
 library flutter_nes;
 
-import "dart:typed_data";
+import 'dart:async';
+import 'dart:typed_data';
 
 import 'cpu.dart';
 import 'ppu.dart';
 import "bus.dart";
-import "event_bus.dart";
 import 'util/util.dart';
 import 'frame.dart';
 
@@ -13,75 +13,41 @@ export 'cpu.dart' show CPU;
 export 'ppu.dart' show PPU;
 export 'cartridge.dart' show Cardtridge;
 export 'bus.dart' show BUS;
-export 'memory.dart' show Memory;
 export 'frame.dart' show Frame;
 
 // the Console
 class NesEmulator {
   BUS bus = BUS();
 
-  Frame bgTilesFrame = Frame(width: 0x80, height: 0x80);
-  Frame spriteTilesFrame = Frame(width: 0x80, height: 0x80);
-
   int targetFps = 60;
   double fps = 60.0;
-  DateTime _lastFrameAt;
+  DateTime _lastFrameAt = DateTime.now();
 
   CPU get cpu => bus.cpu;
   PPU get ppu => bus.ppu;
 
+  StreamController<Frame> frameStream = StreamController<Frame>();
+
   // load nes rom data
-  loadGame(Uint8List data) => bus.cardtridge.load(data);
+  loadGame(Uint8List bytes) => bus.card.loadNesFile(bytes);
 
-  // get one frame
-  Frame _frame() {
-    Frame frame;
+  clock() async {
+    int times = cpu.clock() * 3;
+    while (times-- > 0) {
+      ppu.clock();
 
-    for (;;) {
-      bus.cpu.clock();
-      int times = 3;
-      while (times-- > 0) {
-        bus.ppu.clock();
+      if (ppu.frameCompleted) {
+        frameStream.sink.add(ppu.frame);
 
-        if (bus.ppu.frameCompleted) {
-          frame = bus.ppu.frame;
-        }
+        await Future.delayed(Duration(milliseconds: 16));
       }
-
-      if (frame != null) return frame;
     }
   }
 
-  _frameLoop() async {
-    var frameEmitter = new Throttle(() {
-      _updateFps();
-      outerBus.emit('FrameDone', _frame());
-    }, 10);
-    frameEmitter.loop();
-  }
-
-  _renderTiles() {
-    for (int x = 0; x < 0x80; x++) {
-      for (int y = 0; y < 0x80; y++) {
-        int number = (y / 8).floor() * 0x10 + (x / 8).floor();
-        int highByte = bus.ppu.read(number * 16 + y % 8 + 8);
-        int lowByte = bus.ppu.read(number * 16 + y % 8);
-
-        int entry = highByte.getBit(7 - x % 8) << 1 | lowByte.getBit(7 - x % 8);
-        bgTilesFrame.setPixel(x, y, entry);
-      }
-    }
-
-    for (int x = 0; x < 0x80; x++) {
-      for (int y = 0; y < 0x80; y++) {
-        int number = (y / 8).floor() * 0x10 + (x / 8).floor();
-        int highByte = bus.ppu.read(0x1000 + number * 16 + y % 8 + 8);
-        int lowByte = bus.ppu.read(0x1000 + number * 16 + y % 8);
-
-        int entry = highByte.getBit(7 - x % 8) << 1 | lowByte.getBit(7 - x % 8);
-        spriteTilesFrame.setPixel(x, y, entry);
-      }
-    }
+  step() {
+    do {
+      clock();
+    } while (cpu.cycles != 0);
   }
 
   _updateFps() {
@@ -90,14 +56,6 @@ class NesEmulator {
       fps = 1000 / now.difference(_lastFrameAt).inMilliseconds;
     }
     _lastFrameAt = now;
-  }
-
-  on(String eventName, EventCallback f) {
-    outerBus.on(eventName, f);
-  }
-
-  off(String eventName, [EventCallback f]) {
-    outerBus.off(eventName, f);
   }
 
   powerOn() {
@@ -115,17 +73,15 @@ class NesEmulator {
     ppu.regOAMADDR = 0x00;
     ppu.regSCROLL = 0x00;
     ppu.regADDR = 0x00;
-
-    _renderTiles();
-    _frameLoop();
   }
 
   reset() {
     cpu.reset();
     ppu.reset();
-    bus.cpuWorkRAM.clear();
-    bus.ppuVideoRAM0.clear();
-    bus.ppuVideoRAM1.clear();
-    bus.ppuPalettes.clear();
+
+    bus.cpuWorkRAM.fill(0x00);
+    bus.ppuVideoRAM0.fill(0x00);
+    bus.ppuVideoRAM1.fill(0x00);
+    bus.ppuPalettes.fill(0x00);
   }
 }

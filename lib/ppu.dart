@@ -1,9 +1,7 @@
+import 'dart:typed_data';
+
 import 'bus.dart';
-import 'cpu.dart';
-import 'cartridge.dart' show Mirroring;
-import 'memory.dart';
-import 'util/number.dart';
-import 'util/logger.dart';
+import 'util/util.dart';
 import 'frame.dart';
 
 const int CYCLES_PER_SCANLINE = 341;
@@ -17,13 +15,11 @@ class Pos {
 }
 
 class PPU {
-  PPU();
-
   BUS bus;
 
   // all PPU registers see: https://wiki.nesdev.com/w/index.php/PPUregisters
   // Controller ($2000) > write
-  int regCTRL;
+  int regCTRL = 0x00;
   int get baseNTAddress => {
         0: 0x2000,
         1: 0x2400,
@@ -39,14 +35,13 @@ class PPU {
   bool get enableNMI => regCTRL.getBit(7) == 1;
 
   void setPPUCTRL(int value) {
-    logger.log('set reg ctrl ${value.toHex()}');
     regCTRL = value & 0xff;
   }
 
   int getPPUCTRL() => regCTRL;
 
   // Mask ($2001) > write
-  int regMASK;
+  int regMASK = 0x00;
   bool get greyscaleEnabled => regMASK.getBit(0) == 1;
   bool get backgroundLeftRenderEnabled => regMASK.getBit(1) == 1;
   bool get spritesLeftRenderEnabled => regMASK.getBit(2) == 1;
@@ -57,7 +52,7 @@ class PPU {
   int getPPUMASK() => regMASK;
 
   // Status ($2002) < read
-  int regSTATUS;
+  int regSTATUS = 0x00;
   bool get verticalBlanking => regSTATUS.getBit(7) == 1;
   bool get spriteHit => regSTATUS.getBit(6) == 1;
   bool get spriteOverflow => regSTATUS.getBit(5) == 1;
@@ -73,7 +68,7 @@ class PPU {
   }
 
   // OAM address ($2003) > write
-  int regOAMADDR;
+  int regOAMADDR = 0x00;
 
   void setOAMADDR(int value) => regOAMADDR = value;
   int getOAMADDR() => regOAMADDR;
@@ -81,15 +76,15 @@ class PPU {
   // OAM(SPR-RAM) data ($2004) <> read/write
   // The OAM (Object Attribute Memory) is internal memory inside the PPU that contains a display list of up to 64 sprites,
   // where each sprite's information occupies 4 bytes. So OAM takes 256 bytes
-  Memory _spriteRAM = Memory(0xff);
+  Uint8List _spriteRAM = Uint8List(0xff);
 
-  int getOAMDATA() => _spriteRAM.read(regOAMADDR);
-  void setOAMDATA(int value) => _spriteRAM.write(regOAMADDR++, value);
+  int getOAMDATA() => _spriteRAM[regOAMADDR];
+  void setOAMDATA(int value) => _spriteRAM[regOAMADDR++] = value;
 
   // Scroll ($2005) >> write x2
-  // upper byte mean x scroll.
-  // lower byte mean y scroll.
-  int regSCROLL; // 16-bit
+  // upper 4bit mean x scroll.
+  // lower 4bit mean y scroll.
+  int regSCROLL = 0x00; // 16-bit
 
   // 0: write PPUSCROLL upper bits, 1: write lower bits
   bool _scrollWriteUpper = true;
@@ -106,10 +101,10 @@ class PPU {
   }
 
   // VRAM Address ($2006) >> write x2, 16-bit
-  int regADDR;
+  int regADDR = 0x00;
 
   // VRAM temporary address, used in PPU
-  int regTMPADDR;
+  int regTMPADDR = 0x00;
 
   // 0: write PPUADDR upper bits, 1: write lower bits
   bool _addrWriteUpper = true;
@@ -158,7 +153,7 @@ class PPU {
 
     int oamAddr = regOAMADDR;
     for (int i = 0; i < 0xff; i++) {
-      _spriteRAM.write(oamAddr + i, bus.cpu.read(page + i));
+      _spriteRAM[oamAddr + i] = bus.cpu.read(page + i);
     }
   }
 
@@ -345,101 +340,6 @@ class PPU {
     _addrWriteUpper = true;
   }
 
-  int read(int address) {
-    address &= 0xffff;
-
-    // CHR-ROM or Pattern Tables
-    if (address < 0x2000) return bus.cardtridge.readCHR(address);
-
-    // NameTables (RAM)
-    if (address < 0x3000) {
-      // horizontal mirroring
-      // [1][1] --> [0x2000][0x2400]
-      // [2][2] --> [0x2800][0x2c00]
-      if (bus.cardtridge.mirroring == Mirroring.Horizontal) {
-        // mirroring to 0x2000 area
-        if (address < 0x2800) {
-          return bus.ppuVideoRAM0.read(address % 0x400);
-        } else {
-          return bus.ppuVideoRAM1.read(address % 0x400);
-        }
-      }
-
-      // vertical mirroring
-      // [1][2] --> [0x2000][0x2400]
-      // [1][2] --> [0x2800][0x2c00]
-      if (bus.cardtridge.mirroring == Mirroring.Vertical) {
-        // mirroring to 0x2000 area
-        if (address < 0x2400 || (address >= 0x2800 && address < 0x2c00)) {
-          return bus.ppuVideoRAM0.read(address % 0x400);
-        } else {
-          return bus.ppuVideoRAM1.read(address % 0x400);
-        }
-      }
-    }
-
-    // NameTables Mirrors
-    if (address < 0x3f00) return read(0x2000 + address % 0x1000);
-
-    // Palettes
-    if (address < 0x3f20) return bus.ppuPalettes.read(address % 0x3f00);
-
-    // Palettes Mirrors
-    if (address < 0x4000) return read(0x3f00 + address % 0x20);
-
-    // whole Mirrors
-    if (address < 0x10000) return read(address % 0x4000);
-
-    throw ("ppu reading: address ${address.toHex()} is over memory map size.");
-  }
-
-  void write(int address, int value) {
-    address &= 0xffff;
-
-    // CHR-ROM or Pattern Tables
-    if (address < 0x2000) return bus.cardtridge.writeCHR(address, value);
-
-    // NameTables (RAM)
-    if (address < 0x3000) {
-      // horizontal mirroring
-      // [1][1] --> [0x2000][0x2400]
-      // [2][2] --> [0x2800][0x2c00]
-      if (bus.cardtridge.mirroring == Mirroring.Horizontal) {
-        // mirroring to 0x2000 area
-        if (address < 0x2800) {
-          return bus.ppuVideoRAM0.write(address % 0x400, value);
-        } else {
-          return bus.ppuVideoRAM1.write(address % 0x400, value);
-        }
-      }
-
-      // vertical mirroring
-      // [1][2] --> [0x2000][0x2400]
-      // [1][2] --> [0x2800][0x2c00]
-      if (bus.cardtridge.mirroring == Mirroring.Vertical) {
-        // mirroring to 0x2000 area
-        if (address < 0x2400 || (address >= 0x2800 && address < 0x2c00)) {
-          return bus.ppuVideoRAM0.write(address % 0x400, value);
-        } else {
-          return bus.ppuVideoRAM1.write(address % 0x400, value);
-        }
-      }
-    }
-
-    // NameTables Mirrors
-    if (address < 0x3f00) return write(0x2000 + address % 0x1000, value);
-
-    // Palettes
-    if (address < 0x3f20) {
-      return bus.ppuPalettes.write(address % 0x3f00, value);
-    }
-
-    // Palettes Mirrors
-    if (address < 0x4000) return write(0x3f00 + (address - 0x3f20) % 0x20, value);
-
-    // whole Mirrors
-    if (address < 0x10000) return write(address % 0x4000, value);
-
-    throw ("cpu writing: address ${address.toHex()} is over memory map size.");
-  }
+  int read(int addr) => bus.ppuRead(addr);
+  void write(int addr, int value) => bus.ppuWrite(addr, value);
 }

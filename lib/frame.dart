@@ -19,6 +19,7 @@ class Frame {
 
   void setPixel(int x, int y, int entry) {
     int color = NES_SYS_PALETTES[entry];
+
     int index = (y * width + x) * 4;
 
     pixels[index] = color >> 16 & 0xff;
