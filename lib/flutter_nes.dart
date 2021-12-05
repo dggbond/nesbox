@@ -1,77 +1,52 @@
 library flutter_nes;
 
-import "dart:typed_data";
+import 'dart:async';
+import 'dart:typed_data';
 
-import 'cartridge.dart';
-import "cpu.dart";
-import "ppu.dart";
+import 'cpu.dart';
+import 'ppu.dart';
 import "bus.dart";
-import "memory.dart";
-import "event_bus.dart";
-import 'util/logger.dart';
-import 'util/throttle.dart';
 import 'frame.dart';
+
+export 'cpu.dart';
+export 'cpu_instructions.dart';
+export 'ppu.dart' show PPU;
+export 'cartridge.dart' show Cardtridge;
+export 'bus.dart' show BUS;
+export 'frame.dart' show Frame;
 
 // the Console
 class NesEmulator {
-  NesEmulator() {
-    cpu = CPU(bus);
-    ppu = PPU(bus);
-
-    bus.cpu = cpu;
-    bus.ppu = ppu;
-    bus.cpuRAM = cpuWorkRAM;
-    bus.ppuRAM = ppuVideoRAM;
-    bus.ppuPalettes = ppuPalettes;
-    bus.cardtridge = cardtridge;
-  }
-
   BUS bus = BUS();
-
-  CPU cpu;
-  PPU ppu;
-  Memory cpuWorkRAM = Memory(0x800);
-
-  // In most case PPU only use 2kb RAM and mirroring the name tables
-  // but when four-screen mirroring it will use an additional 2kb RAM.
-  // In this emulator, i ignore four-screen case, so i just need 2kb RAM.
-  Memory ppuVideoRAM = Memory(0x800);
-  Memory ppuPalettes = Memory(0x20);
-  Cardtridge cardtridge = Cardtridge();
 
   int targetFps = 60;
   double fps = 60.0;
-  DateTime _lastFrameAt;
+  DateTime _lastFrameAt = DateTime.now();
+
+  CPU get cpu => bus.cpu;
+  PPU get ppu => bus.ppu;
+
+  StreamController<Frame> frameStream = StreamController<Frame>();
 
   // load nes rom data
-  loadGame(Uint8List data) => cardtridge.load(data);
+  loadGame(Uint8List bytes) => bus.card.loadNesFile(bytes);
 
-  // get one frame
-  Frame _frame() {
-    Frame frame;
+  clock() async {
+    int times = cpu.clock() * 3;
+    while (times-- > 0) {
+      ppu.clock();
 
-    for (;;) {
-      int cpuCycles = cpu.tick();
-      int ppuCycles = cpuCycles * 3;
-
-      while (ppuCycles-- > 0) {
-        ppu.tick();
-
-        if (ppu.frameCompleted) {
-          frame = ppu.frame;
-        }
+      if (ppu.frameCompleted) {
+        frameStream.sink.add(ppu.frame);
+        _updateFps();
       }
-
-      if (frame != null) return frame;
     }
   }
 
-  _frameLoop() async {
-    var frameEmitter = new Throttle(() {
-      _updateFps();
-      outerBus.emit('FrameDone', _frame());
-    }, 10);
-    frameEmitter.loop();
+  step() {
+    do {
+      clock();
+    } while (cpu.cycles != 0);
   }
 
   _updateFps() {
@@ -82,26 +57,17 @@ class NesEmulator {
     _lastFrameAt = now;
   }
 
-  on(String eventName, EventCallback f) {
-    outerBus.on(eventName, f);
-  }
+  powerOn() async {
+    reset();
 
-  off(String eventName, [EventCallback f]) {
-    outerBus.off(eventName, f);
-  }
-
-  powerOn() {
-    cpu.powerOn();
-    ppu.powerOn();
-
-    _frameLoop();
+    while (true) {
+      await clock();
+    }
   }
 
   reset() {
     cpu.reset();
     ppu.reset();
-    cpuWorkRAM.clear();
-    ppuVideoRAM.clear();
-    ppuPalettes.clear();
+    bus.reset();
   }
 }

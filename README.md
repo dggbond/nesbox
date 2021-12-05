@@ -35,7 +35,7 @@ blogs:
 - [NES Rendering](https://austinmorlan.com/posts/nes_rendering_overview/)
 
 6502 CPU:
-- [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
+- [6502 CPU reference](https://www.masswerk.at/6502/6502_instruction_set.html#PHP)
 - [emualtor101](http://www.emulator101.com/6502-emulator.html)
 
 PPU:
@@ -48,6 +48,10 @@ there are some unoffical opcodes in nes program. these docs may help.
 
 nesfiles:
 - [nesfiles](https://www.nesfiles.com/)
+
+Tests:
+- https://wiki.nesdev.org/w/index.php?title=Emulator_tests#CPU_Tests
+- http://www.qmtpro.com/~nes/misc/
 
 ## Other nes emulators
 - [fogleman/nes](https://github.com/fogleman/nes): written in go.

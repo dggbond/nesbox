@@ -1,4 +1,4 @@
-import 'package:flutter_nes/util/number.dart';
+import 'package:flutter_nes/util/util.dart';
 import "package:test/test.dart";
 
 void main() {
