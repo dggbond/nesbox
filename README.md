@@ -35,7 +35,7 @@ blogs:
 - [NES Rendering](https://austinmorlan.com/posts/nes_rendering_overview/)
 
 6502 CPU:
-- [6502 CPU reference](http://www.obelisk.me.uk/6502/reference.html)
+- [6502 CPU reference](https://www.masswerk.at/6502/6502_instruction_set.html#PHP)
 - [emualtor101](http://www.emulator101.com/6502-emulator.html)
 
 PPU:

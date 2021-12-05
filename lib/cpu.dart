@@ -1,5 +1,8 @@
 import 'cpu_instructions.dart';
 import 'bus.dart';
+import 'util/util.dart';
+
+export 'cpu_instructions.dart';
 
 // emualtor for 6502 CPU
 class CPU {
@@ -48,8 +51,10 @@ class CPU {
   int totalCycles = 0;
 
   Op op; // the executing op
-  int absAddr = 0x00;
-  int relAddr = 0x00;
+  int byte1; // first byte next opcode at regPC
+  int byte2; // second byte next opcode at regPC
+  int address = 0x00; // the address after address mode.
+  int fetched;
 
   // stack works top-down, see NESDoc page 12.
   pushStack(int value) {
@@ -57,7 +62,7 @@ class CPU {
     regSP--;
   }
 
-  popStack() {
+  int popStack() {
     regSP++;
     return read(0x100 + regSP);
   }
@@ -67,24 +72,14 @@ class CPU {
     pushStack(value & 0xff);
   }
 
-  popStack16Bit() {
+  int popStack16Bit() {
     return popStack() | (popStack() << 8);
   }
 
-  int fetch() {
-    if (op.mode == Accumulator) {
-      return regA;
-    } else if (op.mode != Implied) {
-      return read(absAddr);
-    }
-  }
-
   branchSuccess() {
-    absAddr = regPC + relAddr;
+    cycles += isPageCrossed(address, regPC) ? 2 : 1;
 
-    cycles += isPageCrossed(absAddr, regPC) ? 2 : 1;
-
-    regPC = absAddr;
+    regPC = address;
   }
 
   nmi() {
@@ -116,18 +111,21 @@ class CPU {
   }
 
   reset() {
-    regA = 0;
-    regX = 0;
-    regY = 0;
     regSP = 0xfd;
     regPC = read16Bit(0xfffc);
+    regPS = 0x24;
 
-    cycles = 8;
+    cycles = 7;
   }
 
   int clock() {
     if (cycles == 0) {
-      op = CPU_OPS[read(regPC++)];
+      int opcode = read(regPC++);
+      op = CPU_OPS[opcode];
+
+      if (op == null) {
+        throw 'Unhandled opcode: ${opcode.toHex()}';
+      }
 
       cycles = op.cycles;
 
@@ -138,11 +136,24 @@ class CPU {
     cycles--;
     totalCycles++;
 
+    if (cycles == 0) {
+      op = null;
+      byte1 = null;
+      byte2 = null;
+      address = null;
+      fetched = null;
+    }
+
     return 1;
   }
 
-  int read(int addr) => bus.cpuRead(addr);
+  int read(int addr) => bus.cpuRead(addr) & 0xff;
   int read16Bit(int address) => read(address + 1) << 8 | read(address);
+  int read16BitUncrossPage(int address) {
+    int nextAddress = address & 0xff00 | ((address + 1) % 0x100);
+
+    return read(nextAddress) << 8 | read(address);
+  }
 
   void write(int addr, int value) => bus.cpuWrite(addr, value);
 }

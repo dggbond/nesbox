@@ -157,13 +157,13 @@ class PPU {
     }
   }
 
-  int scanline = -1; // start from pre render scanline
+  int scanline = 0;
   int cycle = 0;
   int frames = 0;
   bool frameCompleted = false;
 
   bool get isScanLineVisible => scanline >= 0 && scanline <= 239;
-  bool get isScanLinePreRender => scanline == -1;
+  bool get isScanLinePreRender => scanline == SCANLINES_PER_FRAME;
   bool get isCycleVisible => cycle >= 1 && cycle <= 256;
 
   int _NTByte = 0;
@@ -180,6 +180,10 @@ class PPU {
     if (cycle >= 321 && cycle <= 336) {
       x = 0;
       y++;
+
+      if (y >= SCANLINES_PER_FRAME) {
+        y = 0;
+      }
     }
 
     return Pos(x, y);
@@ -319,8 +323,8 @@ class PPU {
     }
 
     // one Frame is completed.
-    if (scanline >= SCANLINES_PER_FRAME - 1) {
-      scanline = -1;
+    if (scanline >= SCANLINES_PER_FRAME) {
+      scanline = 0;
       frames++;
       frameCompleted = true;
       regSTATUS = regSTATUS.setBit(7, 0);
@@ -330,6 +334,10 @@ class PPU {
   }
 
   void reset() {
+    cycle = 0;
+    scanline = 0;
+    frames = 0;
+
     regCTRL = 0x00;
     regMASK = 0x00;
     regSTATUS = regSTATUS.getBit(7) << 7;

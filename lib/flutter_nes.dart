@@ -6,10 +6,10 @@ import 'dart:typed_data';
 import 'cpu.dart';
 import 'ppu.dart';
 import "bus.dart";
-import 'util/util.dart';
 import 'frame.dart';
 
-export 'cpu.dart' show CPU;
+export 'cpu.dart';
+export 'cpu_instructions.dart';
 export 'ppu.dart' show PPU;
 export 'cartridge.dart' show Cardtridge;
 export 'bus.dart' show BUS;
@@ -38,8 +38,7 @@ class NesEmulator {
 
       if (ppu.frameCompleted) {
         frameStream.sink.add(ppu.frame);
-
-        await Future.delayed(Duration(milliseconds: 16));
+        _updateFps();
       }
     }
   }
@@ -58,30 +57,17 @@ class NesEmulator {
     _lastFrameAt = now;
   }
 
-  powerOn() {
-    // CPU power-up state see: https://wiki.nesdev.com/w/index.php/CPU_power_up_state
-    cpu.regPC = cpu.read16Bit(0xfffc);
-    cpu.regPS = 0x34;
-    cpu.regSP = 0xfd;
-    cpu.regA = 0x00;
-    cpu.regX = 0x00;
-    cpu.regY = 0x00;
+  powerOn() async {
+    reset();
 
-    ppu.regCTRL = 0x00;
-    ppu.regMASK = 0x00;
-    ppu.regSTATUS = 0x00;
-    ppu.regOAMADDR = 0x00;
-    ppu.regSCROLL = 0x00;
-    ppu.regADDR = 0x00;
+    while (true) {
+      await clock();
+    }
   }
 
   reset() {
     cpu.reset();
     ppu.reset();
-
-    bus.cpuWorkRAM.fill(0x00);
-    bus.ppuVideoRAM0.fill(0x00);
-    bus.ppuVideoRAM1.fill(0x00);
-    bus.ppuPalettes.fill(0x00);
+    bus.reset();
   }
 }

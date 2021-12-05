@@ -48,14 +48,11 @@ class BUS {
 
       // SRAM
     } else if (address < 0x8000) {
-      if (card.sRAM != null) {
-        return card.sRAM[address - 0x6000];
-      }
-      return 0;
+      return card.read(address);
 
       // PRG ROM
     } else if (address < 0x10000) {
-      return card.readPRG(address - 0x8000);
+      return card.read(address);
     }
 
     return 0;
@@ -112,7 +109,7 @@ class BUS {
 
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) {
-      return card.readCHR(address);
+      return card.read(address);
 
       // NameTables (RAM)
     } else if (address < 0x3f00) {
@@ -154,7 +151,7 @@ class BUS {
 
     // CHR-ROM or Pattern Tables
     if (address < 0x2000) {
-      card.writeCHR(address, value);
+      card.write(address, value);
 
       // NameTables (RAM)
     } else if (address < 0x3f00) {
@@ -189,5 +186,12 @@ class BUS {
       address = (address - 0x3f00) % 0x20;
       ppuPalettes[address] = value;
     }
+  }
+
+  reset() {
+    cpuWorkRAM = Uint8List(0x800);
+    ppuVideoRAM0 = Uint8List(0x400);
+    ppuVideoRAM1 = Uint8List(0x400);
+    ppuPalettes = Uint8List(0x20);
   }
 }

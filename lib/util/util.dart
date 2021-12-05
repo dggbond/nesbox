@@ -1,10 +1,8 @@
-import 'dart:typed_data';
-
 export 'logger.dart';
 
 extension IntExtension on int {
-  String toHex([String prefix = '', int len = 2]) {
-    return prefix + this.toUnsigned(16).toRadixString(16).padLeft(len, "0").toUpperCase();
+  String toHex([int len = 2]) {
+    return this.toUnsigned(16).toRadixString(16).padLeft(len, "0").toUpperCase();
   }
 
   int getBit(int n) {
@@ -29,25 +27,11 @@ extension IntExtension on int {
   }
 
   int getZeroBit() {
-    return this == 0 ? 1 : 0;
+    return (this & 0xff) == 0 ? 1 : 0;
   }
 
   bool inRange(int start, int end) {
     return this >= start && this <= end;
-  }
-}
-
-extension Uint8ListExtension on Uint8List {
-  sublistBySize(int start, int size) => this.sublist(start, start + size);
-  fill(int val) => this.fillRange(0, this.length - 1, val);
-}
-
-extension FunctionExtension on Function {
-  name() {
-    RegExp regExp = RegExp(r"Function \'(\w+)\'");
-    RegExpMatch match = regExp.firstMatch(this.toString());
-
-    return match.group(1);
   }
 }
 
