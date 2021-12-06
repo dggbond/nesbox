@@ -15,7 +15,7 @@ int simulateCpuAddressing(CPU cpu) {
     throw 'Unknow opcode: ${opcode.toHex()}';
   }
 
-  cpu.op.mode.call(cpu); // get the address on cpu.
+  cpu.op.mode.call(cpu); // get the address and fetched on cpu.
   cpu.regPC = beginRegPC;
   cpu.cycles = beginCycles;
 
@@ -24,13 +24,13 @@ int simulateCpuAddressing(CPU cpu) {
 
 void main() {
   test("cpu test", () async {
-    final testlogs = File("roms/nestest.txt").readAsLinesSync();
+    final testlogs = File("testfiles/nestest.txt").readAsLinesSync();
 
     final emulator = new NesEmulator();
     final cpu = emulator.cpu;
     final ppu = emulator.ppu;
 
-    emulator.loadGame(File("roms/nestest.nes").readAsBytesSync());
+    emulator.loadGame(File("testfiles/nestest.nes").readAsBytesSync());
     emulator.reset();
     emulator.step(); // consume the cycles that reset created.
     emulator.cpu.regPC = 0xc000;
