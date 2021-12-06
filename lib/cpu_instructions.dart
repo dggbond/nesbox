@@ -119,17 +119,18 @@ AND(CPU cpu) {
 }
 
 ASL(CPU cpu) {
-  int tmp = (cpu.fetched << 1) & 0xff;
+  cpu.fCarry = cpu.fetched.getBit(7);
+
+  cpu.fetched = (cpu.fetched << 1) & 0xff;
 
   if (cpu.op.mode == Accumulator) {
-    cpu.regA = tmp;
+    cpu.regA = cpu.fetched;
   } else {
-    cpu.write(cpu.address, tmp);
+    cpu.write(cpu.address, cpu.fetched);
   }
 
-  cpu.fCarry = cpu.fetched.getBit(7);
-  cpu.fZero = tmp.getZeroBit();
-  cpu.fNegative = tmp.getBit(7);
+  cpu.fZero = cpu.fetched.getZeroBit();
+  cpu.fNegative = cpu.fetched.getBit(7);
 }
 
 BIT(CPU cpu) {
@@ -213,6 +214,7 @@ CPY(CPU cpu) {
 
 DEC(CPU cpu) {
   cpu.fetched--;
+  cpu.fetched &= 0xff;
   cpu.write(cpu.address, cpu.fetched & 0xff);
 
   cpu.fZero = cpu.fetched.getZeroBit();
@@ -242,6 +244,8 @@ EOR(CPU cpu) {
 
 INC(CPU cpu) {
   cpu.fetched++;
+  cpu.fetched &= 0xff;
+
   cpu.write(cpu.address, cpu.fetched & 0xff);
 
   cpu.fZero = cpu.fetched.getZeroBit();
@@ -290,16 +294,16 @@ LDY(CPU cpu) {
 }
 
 LSR(CPU cpu) {
-  int tmp = (cpu.fetched >> 1) & 0xff;
+  cpu.fCarry = cpu.fetched.getBit(0);
+  cpu.fetched = (cpu.fetched >> 1) & 0xff;
 
   if (cpu.op.mode == Accumulator) {
-    cpu.regA = tmp;
+    cpu.regA = cpu.fetched;
   } else {
-    cpu.write(cpu.address, tmp);
+    cpu.write(cpu.address, cpu.fetched);
   }
 
-  cpu.fCarry = cpu.fetched.getBit(0);
-  cpu.fZero = tmp.getZeroBit();
+  cpu.fZero = cpu.fetched.getZeroBit();
   cpu.fNegative = 0;
 }
 
@@ -336,31 +340,35 @@ PLP(CPU cpu) {
 }
 
 ROL(CPU cpu) {
-  int tmp = (cpu.fetched << 1).setBit(0, cpu.fCarry);
-
-  if (cpu.op.mode == Accumulator) {
-    cpu.regA = tmp & 0xff;
-    cpu.fZero = cpu.regA.getZeroBit();
-  } else {
-    cpu.write(cpu.address, tmp);
-  }
+  int oldCarry = cpu.fCarry;
 
   cpu.fCarry = cpu.fetched.getBit(7);
-  cpu.fNegative = tmp.getBit(7);
+  cpu.fetched = (cpu.fetched << 1).setBit(0, oldCarry);
+
+  if (cpu.op.mode == Accumulator) {
+    cpu.regA = cpu.fetched & 0xff;
+    cpu.fZero = cpu.regA.getZeroBit();
+  } else {
+    cpu.write(cpu.address, cpu.fetched);
+  }
+
+  cpu.fNegative = cpu.fetched.getBit(7);
 }
 
 ROR(CPU cpu) {
-  int tmp = (cpu.fetched >> 1).setBit(7, cpu.fCarry);
-
-  if (cpu.op.mode == Accumulator) {
-    cpu.regA = tmp;
-    cpu.fZero = cpu.regA.getZeroBit();
-  } else {
-    cpu.write(cpu.address, tmp);
-  }
+  int oldCarry = cpu.fCarry;
 
   cpu.fCarry = cpu.fetched.getBit(0);
-  cpu.fNegative = tmp.getBit(7);
+  cpu.fetched = (cpu.fetched >> 1).setBit(7, oldCarry);
+
+  if (cpu.op.mode == Accumulator) {
+    cpu.regA = cpu.fetched;
+    cpu.fZero = cpu.regA.getZeroBit();
+  } else {
+    cpu.write(cpu.address, cpu.fetched);
+  }
+
+  cpu.fNegative = cpu.fetched.getBit(7);
 }
 
 RTI(CPU cpu) {
@@ -691,34 +699,34 @@ const Map<int, Op> CPU_OPS = {
   0xfb: Op(ISC, '*ISB', AbsoluteY, 7),
   0xe3: Op(ISC, '*ISB', IndexedIndirect, 8),
   0xf3: Op(ISC, '*ISB', IndirectIndexed, 8),
-  0x27: Op(RLA, 'RLA', ZeroPage, 5),
-  0x37: Op(RLA, 'RLA', ZeroPageX, 6),
-  0x2f: Op(RLA, 'RLA', Absolute, 6),
-  0x3f: Op(RLA, 'RLA', AbsoluteX, 7, true),
-  0x3b: Op(RLA, 'RLA', AbsoluteY, 7, true),
-  0x23: Op(RLA, 'RLA', IndexedIndirect, 8),
-  0x33: Op(RLA, 'RLA', IndirectIndexed, 8, true),
-  0x67: Op(RRA, 'RRA', ZeroPage, 5),
-  0x77: Op(RRA, 'RRA', ZeroPageX, 6),
-  0x6f: Op(RRA, 'RRA', Absolute, 6),
-  0x7f: Op(RRA, 'RRA', AbsoluteX, 7, true),
-  0x7b: Op(RRA, 'RRA', AbsoluteY, 7, true),
-  0x63: Op(RRA, 'RRA', IndexedIndirect, 8),
-  0x73: Op(RRA, 'RRA', IndirectIndexed, 8, true),
-  0x07: Op(SLO, 'SLO', ZeroPage, 5),
-  0x17: Op(SLO, 'SLO', ZeroPageX, 6),
-  0x0f: Op(SLO, 'SLO', Absolute, 6),
-  0x1f: Op(SLO, 'SLO', AbsoluteX, 7, true),
-  0x1b: Op(SLO, 'SLO', AbsoluteY, 7, true),
-  0x03: Op(SLO, 'SLO', IndexedIndirect, 8),
-  0x13: Op(SLO, 'SLO', IndirectIndexed, 8, true),
-  0x47: Op(SRE, 'SRE', ZeroPage, 5),
-  0x57: Op(SRE, 'SRE', ZeroPageX, 6),
-  0x4f: Op(SRE, 'SRE', Absolute, 6),
-  0x5f: Op(SRE, 'SRE', AbsoluteX, 7, true),
-  0x5b: Op(SRE, 'SRE', AbsoluteY, 7, true),
-  0x43: Op(SRE, 'SRE', IndexedIndirect, 8),
-  0x53: Op(SRE, 'SRE', IndirectIndexed, 8, true),
+  0x27: Op(RLA, '*RLA', ZeroPage, 5),
+  0x37: Op(RLA, '*RLA', ZeroPageX, 6),
+  0x2f: Op(RLA, '*RLA', Absolute, 6),
+  0x3f: Op(RLA, '*RLA', AbsoluteX, 7),
+  0x3b: Op(RLA, '*RLA', AbsoluteY, 7),
+  0x23: Op(RLA, '*RLA', IndexedIndirect, 8),
+  0x33: Op(RLA, '*RLA', IndirectIndexed, 8),
+  0x67: Op(RRA, '*RRA', ZeroPage, 5),
+  0x77: Op(RRA, '*RRA', ZeroPageX, 6),
+  0x6f: Op(RRA, '*RRA', Absolute, 6),
+  0x7f: Op(RRA, '*RRA', AbsoluteX, 7),
+  0x7b: Op(RRA, '*RRA', AbsoluteY, 7),
+  0x63: Op(RRA, '*RRA', IndexedIndirect, 8),
+  0x73: Op(RRA, '*RRA', IndirectIndexed, 8),
+  0x07: Op(SLO, '*SLO', ZeroPage, 5),
+  0x17: Op(SLO, '*SLO', ZeroPageX, 6),
+  0x0f: Op(SLO, '*SLO', Absolute, 6),
+  0x1f: Op(SLO, '*SLO', AbsoluteX, 7),
+  0x1b: Op(SLO, '*SLO', AbsoluteY, 7),
+  0x03: Op(SLO, '*SLO', IndexedIndirect, 8),
+  0x13: Op(SLO, '*SLO', IndirectIndexed, 8),
+  0x47: Op(SRE, '*SRE', ZeroPage, 5),
+  0x57: Op(SRE, '*SRE', ZeroPageX, 6),
+  0x4f: Op(SRE, '*SRE', Absolute, 6),
+  0x5f: Op(SRE, '*SRE', AbsoluteX, 7),
+  0x5b: Op(SRE, '*SRE', AbsoluteY, 7),
+  0x43: Op(SRE, '*SRE', IndexedIndirect, 8),
+  0x53: Op(SRE, '*SRE', IndirectIndexed, 8),
   0x80: Op(SKB, '*NOP', Immediate, 2),
   0x82: Op(SKB, '*NOP', Immediate, 2),
   0x89: Op(SKB, '*NOP', Immediate, 2),

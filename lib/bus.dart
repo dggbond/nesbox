@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'cartridge.dart';
 import 'cpu.dart';
 import 'ppu.dart';
+import 'util/util.dart';
 
 // bus is used to communiate between hardwares
 class BUS {
@@ -38,8 +39,14 @@ class BUS {
       if (address == 0x2005) return 0;
       if (address == 0x2006) return 0;
       if (address == 0x2007) return ppu.getPPUDATA();
-    } else if (address < 4020) {
+    } else if (address < 0x4020) {
+      // TODO: pApu registers;
+      if (address == 0x4004) return 0xff;
+      if (address == 0x4005) return 0xff;
+      if (address == 0x4006) return 0xff;
+      if (address == 0x4007) return 0xff;
       if (address == 0x4014) return 0;
+      if (address == 0x4015) return 0xff;
       return 0;
 
       // Expansion ROM
@@ -86,7 +93,7 @@ class BUS {
       }
 
       // APU and joypad registers and ppu 0x4014;
-    } else if (address < 4020) {
+    } else if (address < 0x4020) {
       if (address == 0x4014) {
         ppu.setOAMDMA(value);
         cpu.cycles += 514;
