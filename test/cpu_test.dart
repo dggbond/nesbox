@@ -1,25 +1,27 @@
-import "package:flutter_nes/flutter_nes.dart";
-import "package:flutter_nes/util/util.dart";
 import "package:test/test.dart";
+import "package:flutter_nes/flutter_nes.dart";
+import "package:flutter_nes/cpu/cpu.dart";
+import "package:flutter_nes/util/util.dart";
 
 import "dart:io";
 
-int simulateCpuAddressing(CPU cpu) {
+List<int> simulateCpuAddressing(CPU cpu) {
   int beginRegPC = cpu.regPC; // used for restore initial regPC
   int beginCycles = cpu.cycles;
   int opcode = cpu.read(cpu.regPC++);
 
-  cpu.op = CPU_OPS[opcode];
+  cpu.op = OP_TABLE[opcode];
 
   if (cpu.op == null) {
     throw 'Unknow opcode: ${opcode.toHex()}';
   }
 
-  cpu.op.mode.call(cpu); // get the address and fetched on cpu.
+  List<int> bytes = cpu.op.mode.call(cpu); // get the address and fetched on cpu.
+
   cpu.regPC = beginRegPC;
   cpu.cycles = beginCycles;
 
-  return opcode;
+  return [opcode, ...bytes];
 }
 
 void main() {
@@ -32,7 +34,7 @@ void main() {
 
     emulator.loadGame(File("testfiles/nestest.nes").readAsBytesSync());
     emulator.reset();
-    emulator.step(); // consume the cycles that reset created.
+    emulator.stepInsruction(); // consume the cycles that reset created.
     emulator.cpu.regPC = 0xc000;
 
     for (int index = 0;; index++) {
@@ -41,11 +43,14 @@ void main() {
         return;
       }
 
-      int opcode = simulateCpuAddressing(cpu);
+      List<int> data = simulateCpuAddressing(cpu);
+      int opcode = data[0];
+      int byte1 = data.elementAt(1);
+      int byte2 = data.elementAt(2);
 
-      String b1 = cpu.byte1?.toHex() ?? '';
-      String b2 = cpu.byte2?.toHex() ?? '';
-      String fetched = cpu.fetched?.toHex() ?? '';
+      String b1 = byte1?.toHex() ?? '';
+      String b2 = byte2?.toHex() ?? '';
+      String fetched = cpu.fetch()?.toHex() ?? '';
 
       String opname = cpu.op.abbr;
 
@@ -83,18 +88,18 @@ void main() {
           break;
 
         case AbsoluteX:
-          actualLog = actualLog.replaceFirst('ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},X @ ${cpu.address.toHex(4)} = $fetched'.padRight(28, ' '));
+          actualLog = actualLog.replaceFirst(
+              'ADDRESS', '\$${(byte2 << 8 | byte1).toHex(4)},X @ ${cpu.address.toHex(4)} = $fetched'.padRight(28, ' '));
           break;
 
         case AbsoluteY:
-          actualLog = actualLog.replaceFirst('ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},Y @ ${cpu.address.toHex(4)} = $fetched'.padRight(28, ' '));
+          actualLog = actualLog.replaceFirst(
+              'ADDRESS', '\$${(byte2 << 8 | byte1).toHex(4)},Y @ ${cpu.address.toHex(4)} = $fetched'.padRight(28, ' '));
           break;
 
         case Indirect:
           actualLog = actualLog.replaceFirst(
-              'ADDRESS', '(\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)}) = ${cpu.address.toHex(4)}'.padRight(28, ' '));
+              'ADDRESS', '(\$${(byte2 << 8 | byte1).toHex(4)}) = ${cpu.address.toHex(4)}'.padRight(28, ' '));
           break;
 
         case Implied:
@@ -115,7 +120,7 @@ void main() {
         case IndexedIndirect:
           actualLog = actualLog.replaceFirst(
               'ADDRESS',
-              '(\$$b1,X) @ ${((cpu.byte1 + cpu.regX) & 0xff).toHex()} = ${cpu.address.toHex(4)} = $fetched'
+              '(\$$b1,X) @ ${((byte1 + cpu.regX) & 0xff).toHex()} = ${cpu.address.toHex(4)} = $fetched'
                   .padRight(28, ' '));
           break;
 
@@ -129,7 +134,7 @@ void main() {
 
       expect(actualLog, testlogs[index], reason: "at line:${index + 1}");
 
-      emulator.step();
+      emulator.stepInsruction();
     }
   });
 }

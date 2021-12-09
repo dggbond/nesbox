@@ -1,5 +1,6 @@
+library flutter_nes.frame;
+
 import 'dart:typed_data';
-import 'palette.dart';
 
 /* Frame
  * one Frame is and int8 array, every pixel takes 4 element as R G B A.
@@ -17,9 +18,7 @@ class Frame {
   int height;
   int width;
 
-  void setPixel(int x, int y, int entry) {
-    int color = NES_SYS_PALETTES[entry];
-
+  void setPixel(int x, int y, int color) {
     int index = (y * width + x) * 4;
 
     pixels[index] = color >> 16 & 0xff;

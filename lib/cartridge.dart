@@ -1,3 +1,5 @@
+library flutter_nes.cartridge;
+
 import "dart:typed_data";
 
 import 'mapper.dart';

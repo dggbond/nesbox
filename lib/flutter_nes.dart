@@ -3,17 +3,11 @@ library flutter_nes;
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'cpu.dart';
+import 'cpu/cpu.dart';
 import 'ppu.dart';
 import "bus.dart";
 import 'frame.dart';
-
-export 'cpu.dart';
-export 'cpu_instructions.dart';
-export 'ppu.dart' show PPU;
-export 'cartridge.dart' show Cardtridge;
-export 'bus.dart' show BUS;
-export 'frame.dart' show Frame;
+import 'util/util.dart';
 
 // the Console
 class NesEmulator {
@@ -26,27 +20,34 @@ class NesEmulator {
   CPU get cpu => bus.cpu;
   PPU get ppu => bus.ppu;
 
-  StreamController<Frame> frameStream = StreamController<Frame>();
+  StreamController<Frame> _frameStreamController = StreamController<Frame>();
+  Stream<Frame> get frameStream => _frameStreamController.stream;
 
   // load nes rom data
   loadGame(Uint8List bytes) => bus.card.loadNesFile(bytes);
 
-  clock() async {
+  clock() {
     int times = cpu.clock() * 3;
+
     while (times-- > 0) {
       ppu.clock();
-
-      if (ppu.frameCompleted) {
-        frameStream.sink.add(ppu.frame);
-        _updateFps();
-      }
     }
   }
 
-  step() {
+  stepInsruction() {
     do {
       clock();
     } while (cpu.cycles != 0);
+  }
+
+  stepFrame() {
+    int frame = ppu.frames;
+    while (ppu.frames == frame) {
+      clock();
+    }
+
+    _frameStreamController.sink.add(ppu.frame);
+    _updateFps();
   }
 
   _updateFps() {
@@ -55,14 +56,6 @@ class NesEmulator {
       fps = 1000 / now.difference(_lastFrameAt).inMilliseconds;
     }
     _lastFrameAt = now;
-  }
-
-  powerOn() async {
-    reset();
-
-    while (true) {
-      await clock();
-    }
   }
 
   reset() {
