@@ -1,8 +1,13 @@
-import 'cpu_instructions.dart';
-import 'bus.dart';
-import 'util/util.dart';
+library flutter_nes.cpu;
 
-export 'cpu_instructions.dart';
+import 'package:flutter_nes/bus.dart';
+
+import 'op.dart';
+import 'interrupt.dart' as cpu_interrupt;
+
+export 'op.dart';
+export 'address_mode.dart';
+export 'instruction.dart';
 
 // emualtor for 6502 CPU
 class CPU {
@@ -51,82 +56,29 @@ class CPU {
   int totalCycles = 0;
 
   Op op; // the executing op
-  int byte1; // first byte next opcode at regPC
-  int byte2; // second byte next opcode at regPC
+  Function interrupt;
   int address = 0x00; // the address after address mode.
-  int fetched;
+
+  int fetch() => read(address);
 
   // stack works top-down, see NESDoc page 12.
-  pushStack(int value) {
-    write(0x100 + regSP, value);
-    regSP--;
-  }
+  pushStack(int value) => write(0x100 + regSP--, value & 0xff);
 
-  int popStack() {
-    regSP++;
-    return read(0x100 + regSP);
-  }
+  int popStack() => read(0x100 + ++regSP) & 0xff;
 
   pushStack16Bit(int value) {
-    pushStack(value >> 8 & 0xff);
+    pushStack(value >> 8);
     pushStack(value & 0xff);
   }
 
-  int popStack16Bit() {
-    return popStack() | (popStack() << 8);
-  }
-
-  branchSuccess() {
-    cycles += isPageCrossed(address, regPC) ? 2 : 1;
-
-    regPC = address;
-  }
-
-  nmi() {
-    pushStack16Bit(regPC);
-
-    // Set the interrupt disable flag to prevent further interrupts.
-    fInterruptDisable = 1;
-    fBreakCommand = 0;
-
-    pushStack(regPS);
-    regPC = read16Bit(0xfffa);
-
-    cycles = 7;
-  }
-
-  irq() {
-    // IRQ is ignored when interrupt disable flag is set.
-    if (fInterruptDisable == 1) return;
-
-    pushStack16Bit(regPC);
-
-    fInterruptDisable = 1;
-    fBreakCommand = 0;
-
-    pushStack(regPS);
-    regPC = read16Bit(0xfffe);
-
-    cycles = 7;
-  }
-
-  reset() {
-    regSP = 0xfd;
-    regPC = read16Bit(0xfffc);
-    regPS = 0x24;
-
-    cycles = 7;
-  }
+  int popStack16Bit() => popStack() | (popStack() << 8);
 
   int clock() {
     if (cycles == 0) {
-      int opcode = read(regPC++);
-      op = CPU_OPS[opcode];
+      interrupt?.call(this);
+      interrupt = null;
 
-      if (op == null) {
-        throw 'Unhandled opcode: ${opcode.toHex()}';
-      }
-
+      op = OP_TABLE[read(regPC++)];
       cycles = op.cycles;
 
       op.mode.call(this);
@@ -136,16 +88,10 @@ class CPU {
     cycles--;
     totalCycles++;
 
-    if (cycles == 0) {
-      op = null;
-      byte1 = null;
-      byte2 = null;
-      address = null;
-      fetched = null;
-    }
-
     return 1;
   }
+
+  reset() => cpu_interrupt.reset(this);
 
   int read(int addr) => bus.cpuRead(addr) & 0xff;
   int read16Bit(int address) => read(address + 1) << 8 | read(address);

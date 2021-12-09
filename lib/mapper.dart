@@ -1,11 +1,9 @@
+library flutter_nes.mapper;
+
 import 'cartridge.dart';
-import 'util/util.dart';
 
 abstract class Mapper {
   Mapper(this.card);
-
-  int prgBank1;
-  int prgBank2;
 
   Cardtridge card;
 
@@ -14,36 +12,39 @@ abstract class Mapper {
   void write(int address, int value) {}
 }
 
+// NORM: https://wiki.nesdev.org/w/index.php?title=NROM
 class Mapper0 extends Mapper {
-  Mapper0(Cardtridge card) : super(card) {
-    prgBank1 = 0;
-    prgBank2 = card.prgBanks - 1;
-  }
+  Mapper0(Cardtridge card) : super(card);
 
   @override
   read(int address) {
     if (address < 0x2000) {
       return card.chrROM[address];
-    } else if (address >= 0x6000 && address < 0x8000) {
-      return card.sRAM[address - 0x6000];
-    } else if (address >= 0x8000 && address < 0xc000) {
-      return card.prgROM[address - 0x8000];
-    } else if (address >= 0xc000) {
-      return card.prgROM[prgBank2 * PRG_BANK_SIZE + address - 0xc000];
-    } else {
-      throw "unhandled mapper address: ${address.toHex()}";
     }
+
+    if (address >= 0x6000 && address < 0x8000) {
+      if (card.battery) return card.sRAM[address - 0x6000];
+      return 0;
+    }
+
+    if (address >= 0x8000) {
+      int offset = address - 0x8000;
+      return card.prgROM[card.prgBanks == 1 ? offset % 0x4000 : offset];
+    }
+
+    return 0;
   }
 
   @override
   write(int address, int value) {
     if (address < 0x2000) {
       card.chrROM[address] = value;
-    } else if (address >= 0x6000 && address < 0x8000) {
-      card.sRAM[address - 0x6000] = value;
-    } else {
-      throw "unhandled mapper address: ${address.toHex()}";
     }
+
+    if (address >= 0x6000 && address < 0x8000) {
+      if (card.battery) card.sRAM[address - 0x6000] = value;
+    }
+    return;
   }
 }
 
