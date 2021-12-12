@@ -85,7 +85,7 @@ class PPU {
 
   // OAM(SPR-RAM) data ($2004) <> read/write
   int get regOamData => oam[regOamAddress];
-  void set regOamData(int value) => oam[regOamAddress++];
+  void set regOamData(int value) => oam[regOamAddress++] = value;
 
   // https://wiki.nesdev.org/w/index.php?title=PPU_scrolling
   // reg V bits map
@@ -114,7 +114,7 @@ class PPU {
       // t: FGH..AB CDE..... <- d: ABCDEFGH
       // w:                  <- 0
       regT &= 0x8c1f;
-      regT |= (value & 0x03) << 12;
+      regT |= (value & 0x07) << 12;
       regT |= (value & 0xf8) << 2;
       regW = 0;
     }
@@ -282,12 +282,12 @@ class PPU {
     }
   }
 
-  copyHorizontalPosition() {
+  copyX() {
     // v: ....A.. ...BCDEF <- t: ....A.. ...BCDEF
     regV = (regV & 0xfbe0) | (regT & 0x041f);
   }
 
-  copyVerticalPosition() {
+  copyY() {
     // v: GHIA.BC DEF..... <- t: GHIA.BC DEF.....
     regV = (regV & 0x841f) | (regT & 0x7be0);
   }
@@ -340,7 +340,7 @@ class PPU {
       }
 
       if (isScanlinePreRender && cycle >= 280 && cycle <= 304) {
-        copyHorizontalPosition();
+        copyY();
       }
 
       // after fetch next tile
@@ -353,7 +353,7 @@ class PPU {
       }
 
       if (isScanlineFetching && cycle == 257) {
-        copyVerticalPosition();
+        copyX();
       }
     }
 

@@ -27,9 +27,13 @@ class Mapper0 extends Mapper {
       return 0;
     }
 
-    if (address >= 0x8000) {
-      int offset = address - 0x8000;
-      return card.prgROM[card.prgBanks == 1 ? offset % 0x4000 : offset];
+    if (address >= 0x8000 && address < 0xc000) {
+      return card.prgROM[address - 0x8000];
+    }
+
+    if (address >= 0xc000) {
+      if (card.prgBanks == 1) return card.prgROM[address - 0xc000];
+      return card.prgROM[address - 0x8000];
     }
 
     return 0;
