@@ -1,4 +1,4 @@
-library flutter_nes.cartridge;
+library nesbox.cartridge;
 
 import "dart:typed_data";
 

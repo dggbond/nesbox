@@ -1,4 +1,4 @@
-library flutter_nes.palette;
+library nesbox.palette;
 
 const Map<int, int> NES_SYS_PALETTES = {
   // NES colour palettes is in NESDoc page 45.

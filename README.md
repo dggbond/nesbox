@@ -1,4 +1,4 @@
-# flutter_nes
+# Nesbox
 A nes emulator written in dart without dependencies.
 
 ## Demo App
@@ -13,7 +13,7 @@ there is no package published yet.
 - [x] CPU
 - [ ] PPU
 - [ ] APU
-- [ ] ROM file parser
+- [x] ROM file parser
 - [ ] Controller in keyboard
 - [ ] Picture render
 

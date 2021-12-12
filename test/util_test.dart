@@ -1,4 +1,4 @@
-import 'package:flutter_nes/util/util.dart';
+import 'package:nesbox/util/util.dart';
 import "package:test/test.dart";
 
 void main() {

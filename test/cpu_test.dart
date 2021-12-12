@@ -1,7 +1,7 @@
 import "package:test/test.dart";
-import "package:flutter_nes/flutter_nes.dart";
-import "package:flutter_nes/cpu.dart";
-import "package:flutter_nes/util/util.dart";
+import "package:nesbox/nesbox.dart";
+import "package:nesbox/cpu.dart";
+import "package:nesbox/util/util.dart";
 
 import "dart:io";
 
@@ -30,14 +30,14 @@ void main() {
   test("cpu test", () async {
     final testlogs = File("testfiles/nestest.txt").readAsLinesSync();
 
-    final emulator = new NesEmulator();
-    final cpu = emulator.cpu;
-    final ppu = emulator.ppu;
+    final box = new NesBox();
+    final cpu = box.cpu;
+    final ppu = box.ppu;
 
-    emulator.loadGame(File("testfiles/nestest.nes").readAsBytesSync());
-    emulator.reset();
-    emulator.stepInsruction(); // consume the cycles that reset created.
-    emulator.cpu.regPC = 0xc000;
+    box.loadGame(File("testfiles/nestest.nes").readAsBytesSync());
+    box.reset();
+    box.stepInsruction(); // consume the cycles that reset created.
+    box.cpu.regPC = 0xc000;
 
     for (int index = 0;; index++) {
       if (index > testlogs.length - 1) {
@@ -140,7 +140,7 @@ void main() {
           break;
       }
 
-      emulator.stepInsruction();
+      box.stepInsruction();
 
       expect(actualLog, testlogs[index], reason: "at line:${index + 1}");
     }
