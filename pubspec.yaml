@@ -1,5 +1,5 @@
 name: flutter_nes
-description: A nes emulator.
+description: A nes emulator written in dart.
 version: 0.0.1
 homepage: https://github.com/mao0613/flutter_nes
 
