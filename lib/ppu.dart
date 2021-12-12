@@ -2,11 +2,12 @@ library flutter_nes.ppu;
 
 import 'dart:typed_data';
 
+import 'cpu.dart';
+import 'cartridge.dart' show Mirroring;
 import 'bus.dart';
 import 'util/util.dart';
 import 'frame.dart';
 import 'palette.dart';
-import 'cpu/interrupt.dart' as cpu_interrupt;
 
 class PPU {
   BUS bus;
@@ -20,6 +21,7 @@ class PPU {
   int fBackPatternTable = 0; // 0: $0000; 1: $1000
   int fSpriteSize = 0; // 0: 8x8 pixels; 1: 8x16 pixels
   int fSelect = 0; // 0: read backdrop from EXT pins; 1: output color on EXT pins
+  int fNmiOutput = 0; // 1bit, 0: 0ff, 1: on
 
   void set regController(int value) {
     fBaseNameTable = value & 0x3;
@@ -104,7 +106,7 @@ class PPU {
       // t: ....... ...ABCDE <- d: ABCDE...
       // x:              FGH <- d: .....FGH
       // w:                  <- 1
-      regT = (regT & 0xffd0) | (value & 0xf8) >> 3;
+      regT = (regT & 0xffe0) | value >> 3;
       regX = value & 0x07;
       regW = 1;
     } else {
@@ -181,11 +183,10 @@ class PPU {
 
   // https://wiki.nesdev.org/w/index.php?title=NMI
   int fNmiOccurred = 0; // 1bit
-  int fNmiOutput = 0; // 1bit, 0: 0ff, 1: on
 
   checkNmiPulled() {
     if (fNmiOccurred == 1 && fNmiOutput == 1) {
-      bus.cpu.interrupt = cpu_interrupt.nmi;
+      bus.cpu.interrupt = CpuInterrupt.Nmi;
     }
   }
 
@@ -205,40 +206,42 @@ class PPU {
   _renderPixel() {
     int x = cycle - 1, y = scanline;
 
-    int currentTile = bgTile & 0xff;
-    int entry = currentTile >> ((7 - regX) * 4);
+    int currentTile = bgTile >> 32;
+    int palette = currentTile >> ((7 - regX) * 4);
+    int entry = bus.ppuPalettes[palette & 0x0f];
 
     frame.setPixel(x, y, NES_SYS_PALETTES[entry]);
   }
 
   _fetchNameTableByte() {
-    int addr = 0x2000 | (regV & 0x0FFF);
+    int addr = 0x2000 | (regV & 0x0fff);
     nameTableByte = read(addr);
   }
 
   _fetchAttributeTableByte() {
     int addr = 0x23c0 | (regV & 0x0c00) | ((regV >> 4) & 0x38) | ((regV >> 2) & 0x07);
-    attributeTableByte = read(addr);
+    int shift = ((regV >> 4) & 4) | (regV & 2);
+    attributeTableByte = ((read(addr) >> shift) & 3) << 2;
   }
 
   _fetchLowBGTileByte() {
     int fineY = (regV >> 12) & 0x7;
     int addr = 0x1000 * fBackPatternTable + nameTableByte * 16 + fineY;
 
-    lowBGTileByte = read(addr + 8);
+    lowBGTileByte = read(addr);
   }
 
   _fetchHighBGTileByte() {
     int fineY = (regV >> 12) & 0x7;
     int addr = 0x1000 * fBackPatternTable + nameTableByte * 16 + fineY;
 
-    lowBGTileByte = read(addr);
+    highBGTileByte = read(addr + 8);
   }
 
   _composeBGTile() {
     int tile = 0;
 
-    for (int i = 8; i >= 0; i--) {
+    for (int i = 7; i >= 0; i--) {
       int lowBit = lowBGTileByte.getBit(i);
       int highBit = highBGTileByte.getBit(i);
 
@@ -246,14 +249,12 @@ class PPU {
       tile |= attributeTableByte | highBit << 1 | lowBit;
     }
 
-    bgTile |= tile << 32;
+    bgTile |= tile;
   }
-
-  _evaluateSprites() {}
 
   _incrementCoarseX() {
     if ((regV & 0x001f) == 31) {
-      regV &= ~0x01f; // coarse X = 0
+      regV &= 0xffe0; // coarse X = 0
       regV ^= 0x0400; // switch horizontal nametable
     } else {
       regV++;
@@ -265,7 +266,7 @@ class PPU {
     if (regV & 0x7000 != 0x7000) {
       regV += 0x1000; // increment fine Y
     } else {
-      regV &= ~0x7000; // fine Y = 0
+      regV &= 0x8fff; // fine Y = 0
 
       int y = (regV & 0x03e0) >> 5; // let y = coarse Y
       if (y == 29) {
@@ -277,14 +278,24 @@ class PPU {
         y++; // increment coarse Y
       }
 
-      regV = (regV & ~0x03e0) | (y << 5); // put coarse Y back into v
+      regV = (regV & 0xfc1f) | (y << 5); // put coarse Y back into v
     }
   }
 
+  copyHorizontalPosition() {
+    // v: ....A.. ...BCDEF <- t: ....A.. ...BCDEF
+    regV = (regV & 0xfbe0) | (regT & 0x041f);
+  }
+
+  copyVerticalPosition() {
+    // v: GHIA.BC DEF..... <- t: GHIA.BC DEF.....
+    regV = (regV & 0x841f) | (regT & 0x7be0);
+  }
+
+  _evaluateSprites() {}
+
   // every cycle behaivor is here: https://wiki.nesdev.com/w/index.php/PPU_rendering#Line-by-line_timing
   clock() {
-    checkNmiPulled();
-
     bool isScanlineVisible = scanline < 240;
     bool isScanlinePreRender = scanline == 261;
     bool isScanlineFetching = isScanlineVisible || isScanlinePreRender;
@@ -307,8 +318,7 @@ class PPU {
 
       // fetch background data
       if (isCycleFetching && isScanlineFetching) {
-        // every cycle right shift the tile data for rendering;
-        bgTile >>= 4;
+        bgTile <<= 4;
 
         switch (cycle % 8) {
           case 0:
@@ -329,13 +339,21 @@ class PPU {
         }
       }
 
+      if (isScanlinePreRender && cycle >= 280 && cycle <= 304) {
+        copyHorizontalPosition();
+      }
+
       // after fetch next tile
-      if (isScanlineFetching && (cycle % 8 == 0)) {
+      if (isScanlineFetching && isCycleFetching && (cycle % 8 == 0)) {
         _incrementCoarseX();
       }
 
       if (isScanlineFetching && cycle == 256) {
         _incrementScrollY();
+      }
+
+      if (isScanlineFetching && cycle == 257) {
+        copyVerticalPosition();
       }
     }
 
@@ -344,8 +362,6 @@ class PPU {
       fVerticalBlanking = 1;
       fNmiOccurred = 1;
       checkNmiPulled();
-    } else {
-      fNmiOccurred = 0;
     }
 
     // end vertical blanking
@@ -383,9 +399,6 @@ class PPU {
     }
   }
 
-  int read(int addr) => bus.ppuRead(addr);
-  void write(int addr, int value) => bus.ppuWrite(addr, value);
-
   void reset() {
     cycle = 0;
     scanline = 0;
@@ -395,5 +408,116 @@ class PPU {
     regMask = 0x00;
     regScroll = 0x00;
     dataBuffer = 0x00;
+  }
+
+  int readRegister(int address) {
+    if (address == 0x2002) return regStatus;
+    if (address == 0x2004) return regOamData;
+    if (address == 0x2007) return regData;
+
+    throw "Unhandled ppu register reading: ${address.toHex()}";
+  }
+
+  void writeRegister(int address, int value) {
+    value &= 0xff;
+
+    if (address == 0x2000) {
+      regController = value;
+      return;
+    }
+    if (address == 0x2001) {
+      regMask = value;
+      return;
+    }
+    if (address == 0x2003) {
+      regOamAddress = value;
+      return;
+    }
+    if (address == 0x2004) {
+      regOamData = value;
+      return;
+    }
+    if (address == 0x2005) {
+      regScroll = value;
+      return;
+    }
+    if (address == 0x2006) {
+      regAddress = value;
+      return;
+    }
+    if (address == 0x2007) {
+      regData = value;
+      return;
+    }
+
+    if (address == 0x4014) {
+      regDMA = value;
+      bus.cpu.cycles += fOddFrames ? 514 : 513;
+      return;
+    }
+
+    throw "Unhandled register writing: ${address.toHex()}";
+  }
+
+  int read(int address) {
+    address = (address & 0xffff) % 0x4000;
+
+    // CHR-ROM or Pattern Tables
+    if (address < 0x2000) return bus.card.read(address);
+
+    // NameTables (RAM)
+    if (address < 0x3f00) return bus.ppuVideoRAM[nameTableMirroring(address)];
+
+    // Palettes
+    return bus.ppuPalettes[address % 0x20];
+  }
+
+  void write(int address, int value) {
+    address = (address & 0xffff) % 0x4000;
+    value &= 0xff;
+
+    // CHR-ROM or Pattern Tables
+    if (address < 0x2000) {
+      bus.card.write(address, value);
+      return;
+    }
+
+    // NameTables (RAM)
+    if (address < 0x3f00) {
+      bus.ppuVideoRAM[nameTableMirroring(address)] = value;
+      return;
+    }
+
+    // Palettes
+    bus.ppuPalettes[address % 0x20] = value;
+  }
+
+  int nameTableMirroring(int address) {
+    address = address % 0x1000;
+    int chunk = (address / 0x400).floor();
+
+    switch (bus.card.mirroring) {
+      // [A][A] --> [0x2000][0x2400]
+      // [B][B] --> [0x2800][0x2c00]
+      case Mirroring.Horizontal:
+        return [1, 3].contains(chunk) ? address - 0x400 : address;
+
+      // [A][B] --> [0x2000][0x2400]
+      // [A][B] --> [0x2800][0x2c00]
+      case Mirroring.Vertical:
+        return chunk > 1 ? address - 0x800 : address;
+
+      // [A][B] --> [0x2000][0x2400]
+      // [C][D] --> [0x2800][0x2c00]
+      case Mirroring.FourScreen:
+        return address;
+
+      // [A][A] --> [0x2000][0x2400]
+      // [A][A] --> [0x2800][0x2c00]
+      case Mirroring.SingleScreen:
+        return address % 0x400;
+    }
+
+    return address;
   }
 }

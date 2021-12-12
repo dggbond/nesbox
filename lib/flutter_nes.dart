@@ -3,7 +3,7 @@ library flutter_nes;
 import 'dart:async';
 import 'dart:typed_data';
 
-import 'cpu/cpu.dart';
+import 'cpu.dart';
 import 'ppu.dart';
 import "bus.dart";
 import 'frame.dart';
