@@ -1,21 +1,21 @@
 import "package:test/test.dart";
 
-import 'package:flutter_nes/cpu.dart';
-import "package:flutter_nes/flutter_nes.dart";
-import "package:flutter_nes/util/util.dart";
+import 'package:nesbox/cpu.dart';
+import "package:nesbox/nesbox.dart";
+import "package:nesbox/util/util.dart";
 import "./cpu_test.dart";
 
 import "dart:io";
 
 void main() {
   test("cpu test", () async {
-    final emulator = new NesEmulator();
-    final cpu = emulator.cpu;
-    final ppu = emulator.ppu;
+    final box = new NesBox();
+    final cpu = box.cpu;
+    final ppu = box.ppu;
 
-    emulator.loadGame(File("roms/Super_mario_brothers.nes").readAsBytesSync());
-    emulator.reset();
-    emulator.stepInsruction();
+    box.loadGame(File("roms/Super_mario_brothers.nes").readAsBytesSync());
+    box.reset();
+    box.stepInsruction();
 
     while (true) {
       int opcode = simulateCpuAddressing(cpu);
@@ -101,7 +101,7 @@ void main() {
           break;
       }
 
-      emulator.stepInsruction();
+      box.stepInsruction();
     }
   });
 }

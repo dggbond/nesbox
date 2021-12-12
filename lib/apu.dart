@@ -1,4 +1,4 @@
-library flutter_nes.apu;
+library nesbox.apu;
 
 import 'bus.dart';
 

@@ -1,4 +1,4 @@
-library flutter_nes.ppu;
+library nesbox.ppu;
 
 import 'dart:typed_data';
 

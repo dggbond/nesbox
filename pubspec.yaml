@@ -1,7 +1,7 @@
-name: flutter_nes
+name: nesbox
 description: A nes emulator written in dart.
 version: 0.0.1
-homepage: https://github.com/mao0613/flutter_nes
+homepage: https://github.com/tilemoon/nesbox
 
 environment:
   sdk: ">=2.10.0 <3.0.0"

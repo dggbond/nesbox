@@ -1,7 +1,7 @@
-library flutter_nes.cpu;
+library nesbox.cpu;
 
-import 'package:flutter_nes/bus.dart';
-import 'package:flutter_nes/util/util.dart';
+import 'bus.dart';
+import 'util/util.dart';
 
 enum CpuInterrupt {
   Nmi,
@@ -110,6 +110,9 @@ class CPU {
       case CpuInterrupt.Irq:
         irq();
         break;
+
+      case CpuInterrupt.Reset:
+        reset();
     }
 
     interrupt = null;

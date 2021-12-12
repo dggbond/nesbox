@@ -1,4 +1,4 @@
-library flutter_nes.mapper;
+library nesbox.mapper;
 
 import 'cartridge.dart';
 

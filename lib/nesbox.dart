@@ -1,16 +1,15 @@
-library flutter_nes;
+library nesbox;
 
 import 'dart:async';
 import 'dart:typed_data';
 
 import 'cpu.dart';
 import 'ppu.dart';
-import "bus.dart";
+import 'bus.dart';
 import 'frame.dart';
-import 'util/util.dart';
 
 // the Console
-class NesEmulator {
+class NesBox {
   BUS bus = BUS();
 
   int targetFps = 60;

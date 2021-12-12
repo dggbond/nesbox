@@ -1,4 +1,4 @@
-library flutter_nes.frame;
+library nesbox.frame;
 
 import 'dart:typed_data';
 
