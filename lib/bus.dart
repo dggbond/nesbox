@@ -10,23 +10,24 @@ import 'cartridge.dart';
 // bus is used to communiate between hardwares
 class BUS {
   BUS() {
-    cpu.bus = this;
-    ppu.bus = this;
-    apu.bus = this;
+    cpu = CPU(this);
+    ppu = PPU(this);
+    apu = APU(this);
   }
 
-  CPU cpu = CPU();
-  PPU ppu = PPU();
-  APU apu = APU();
+  late CPU cpu;
+  late PPU ppu;
+  late APU apu;
+
   Cardtridge card = Cardtridge();
 
-  Uint8List cpuWorkRAM;
+  Uint8List cpuWorkRAM = Uint8List(0);
 
   // In most case PPU only use 2kb RAM and mirroring the name tables
   // but when four-screen mirroring it will use an additional 2kb RAM.
-  Uint8List ppuVideoRAM;
+  Uint8List ppuVideoRAM = Uint8List(0);
 
-  Uint8List ppuPalettes;
+  Uint8List ppuPalettes = Uint8List(0);
 
   reset() {
     cpuWorkRAM = Uint8List(0x800);

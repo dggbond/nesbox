@@ -13,7 +13,7 @@ class Frame {
     pixels = Uint8List(height * width * 4);
   }
 
-  Uint8List pixels;
+  late Uint8List pixels;
 
   int height;
   int width;

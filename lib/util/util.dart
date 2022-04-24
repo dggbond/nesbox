@@ -1,8 +1,10 @@
-export 'logger.dart';
-
 extension IntExtension on int {
   String toHex([int len = 2]) {
-    return this.toUnsigned(16).toRadixString(16).padLeft(len, "0").toUpperCase();
+    return this
+        .toUnsigned(16)
+        .toRadixString(16)
+        .padLeft(len, "0")
+        .toUpperCase();
   }
 
   int getBit(int n) {

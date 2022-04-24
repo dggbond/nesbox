@@ -7,7 +7,10 @@ abstract class Mapper {
 
   Cardtridge card;
 
-  int read(int address) {}
+  int read(int address) {
+    // TODO: implements
+    return 0;
+  }
 
   void write(int address, int value) {}
 }

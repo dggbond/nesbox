@@ -10,6 +10,8 @@ import 'frame.dart';
 import 'palette.dart';
 
 class PPU {
+  PPU(this.bus);
+
   BUS bus;
 
   // https://wiki.nesdev.com/w/index.php/PPUregisters
@@ -210,7 +212,7 @@ class PPU {
     int palette = currentTile >> ((7 - regX) * 4);
     int entry = bus.ppuPalettes[palette & 0x0f];
 
-    frame.setPixel(x, y, NES_SYS_PALETTES[entry]);
+    frame.setPixel(x, y, NES_SYS_PALETTES[entry]!);
   }
 
   _fetchNameTableByte() {
