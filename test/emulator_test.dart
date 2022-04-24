@@ -34,8 +34,8 @@ void main() {
         cpuLog = cpuLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
       }
 
-      String b1 = cpu.byte1?.toHex(2);
-      String b2 = cpu.byte2?.toHex(2);
+      String b1 = cpu.byte1!.toHex(2);
+      String b2 = cpu.byte2!.toHex(2);
 
       String data = cpu.byte1 != null ? b1 : '';
       if (cpu.byte2 != null) {
@@ -62,17 +62,17 @@ void main() {
 
         case AbsoluteX:
           cpuLog = cpuLog.replaceFirst('ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},X @ ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},X @ ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
           break;
 
         case AbsoluteY:
           cpuLog = cpuLog.replaceFirst('ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},Y @ ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},Y @ ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
           break;
 
         case Indirect:
           cpuLog = cpuLog.replaceFirst('ADDRESS',
-              '(\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)}) = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+              '(\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)}) = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
           break;
 
         case Implied:
@@ -91,8 +91,10 @@ void main() {
           break;
 
         case IndexedIndirect:
-          cpuLog = cpuLog.replaceFirst('ADDRESS',
-              '(\$$b1,X) @ ${((cpu.byte1 + cpu.regX) & 0xff).toHex()} = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+          cpuLog = cpuLog.replaceFirst(
+              'ADDRESS',
+              '(\$$b1,X) @ ${((cpu.byte1! + cpu.regX) & 0xff).toHex()} = ${cpu.dataAddress.toHex(4)}'
+                  .padRight(28, ' '));
           break;
 
         case IndirectIndexed:

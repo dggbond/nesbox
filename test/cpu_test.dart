@@ -10,7 +10,7 @@ int simulateCpuAddressing(CPU cpu) {
   int beginCycles = cpu.cycles;
   int opcode = cpu.read(cpu.regPC++);
 
-  cpu.op = OP_TABLE[opcode];
+  cpu.op = OP_TABLE[opcode]!;
   cpu.byte1 = null;
   cpu.byte2 = null;
 
@@ -63,8 +63,8 @@ void main() {
         actualLog = actualLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
       }
 
-      String b1 = cpu.byte1?.toHex(2);
-      String b2 = cpu.byte2?.toHex(2);
+      String b1 = cpu.byte1!.toHex(2);
+      String b2 = cpu.byte2!.toHex(2);
 
       String data = cpu.byte1 != null ? b1 : '';
       if (cpu.byte2 != null) {
@@ -94,20 +94,20 @@ void main() {
         case AbsoluteX:
           actualLog = actualLog.replaceFirst(
               'ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},X @ ${cpu.dataAddress.toHex(4)} = $fetched'
+              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},X @ ${cpu.dataAddress.toHex(4)} = $fetched'
                   .padRight(28, ' '));
           break;
 
         case AbsoluteY:
           actualLog = actualLog.replaceFirst(
               'ADDRESS',
-              '\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)},Y @ ${cpu.dataAddress.toHex(4)} = $fetched'
+              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},Y @ ${cpu.dataAddress.toHex(4)} = $fetched'
                   .padRight(28, ' '));
           break;
 
         case Indirect:
           actualLog = actualLog.replaceFirst('ADDRESS',
-              '(\$${(cpu.byte2 << 8 | cpu.byte1).toHex(4)}) = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+              '(\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)}) = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
           break;
 
         case Implied:
@@ -128,7 +128,7 @@ void main() {
         case IndexedIndirect:
           actualLog = actualLog.replaceFirst(
               'ADDRESS',
-              '(\$$b1,X) @ ${((cpu.byte1 + cpu.regX) & 0xff).toHex()} = ${cpu.dataAddress.toHex(4)} = $fetched'
+              '(\$$b1,X) @ ${((cpu.byte1! + cpu.regX) & 0xff).toHex()} = ${cpu.dataAddress.toHex(4)} = $fetched'
                   .padRight(28, ' '));
           break;
 

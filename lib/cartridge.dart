@@ -17,19 +17,19 @@ enum Mirroring {
 }
 
 class Cardtridge {
-  Uint8List rom; // whole game rom
+  late Uint8List rom; // whole game rom
 
-  Uint8List prgROM;
-  Uint8List chrROM;
-  Uint8List trainerROM;
-  Uint8List sRAM; // battery-backed PRG RAM, 8kb
+  late Uint8List prgROM;
+  late Uint8List chrROM;
+  late Uint8List trainerROM;
+  late Uint8List sRAM; // battery-backed PRG RAM, 8kb
 
-  int prgBanks;
-  int chrBanks;
-  bool battery;
+  late int prgBanks;
+  late int chrBanks;
+  late bool battery;
 
-  Mapper mapper;
-  Mirroring mirroring;
+  late Mapper mapper;
+  late Mirroring mirroring;
 
   loadNesFile(Uint8List gameBytes) {
     rom = gameBytes;
@@ -58,7 +58,7 @@ parseNesFile(Cardtridge card) {
     1: Mirroring.Vertical,
     2: Mirroring.FourScreen,
     3: Mirroring.FourScreen,
-  }[card.rom[6].getBit(3) << 1 | card.rom[6].getBit(0)];
+  }[card.rom[6].getBit(3) << 1 | card.rom[6].getBit(0)]!;
 
   // battery-backed RAM Save-RAM
   card.battery = card.rom[6].getBit(1) == 1;

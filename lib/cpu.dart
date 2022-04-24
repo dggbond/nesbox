@@ -11,6 +11,8 @@ enum CpuInterrupt {
 
 // emualtor for 6502 CPU
 class CPU {
+  CPU(this.bus);
+
   BUS bus;
 
   // this is registers
@@ -55,11 +57,11 @@ class CPU {
   int cycles = 0;
   int totalCycles = 0;
 
-  Op op; // the executing op
-  int byte1;
-  int byte2;
+  late Op op; // the executing op
+  int? byte1;
+  int? byte2;
   int dataAddress = 0x00; // the address after address mode.
-  CpuInterrupt interrupt;
+  CpuInterrupt? interrupt;
 
   int fetch() => read(dataAddress);
 
@@ -89,7 +91,8 @@ class CPU {
 
       handleInterrupt();
 
-      op = OP_TABLE[read(regPC++)];
+      op = OP_TABLE[read(regPC++)]!;
+
       cycles = op.cycles;
 
       op.mode.call(this);
@@ -113,6 +116,10 @@ class CPU {
 
       case CpuInterrupt.Reset:
         reset();
+        break;
+
+      default:
+        return;
     }
 
     interrupt = null;
@@ -226,33 +233,33 @@ bool isPageCrossed(int addr1, int addr2) {
 ZeroPage(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = cpu.byte1 & 0xff;
+  cpu.dataAddress = cpu.byte1! & 0xff;
 }
 
 ZeroPageX(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = (cpu.byte1 + cpu.regX) & 0xff;
+  cpu.dataAddress = (cpu.byte1! + cpu.regX) & 0xff;
 }
 
 ZeroPageY(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = (cpu.byte1 + cpu.regY) & 0xff;
+  cpu.dataAddress = (cpu.byte1! + cpu.regY) & 0xff;
 }
 
 Absolute(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
   cpu.byte2 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = cpu.byte2 << 8 | cpu.byte1;
+  cpu.dataAddress = cpu.byte2! << 8 | cpu.byte1!;
 }
 
 AbsoluteX(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
   cpu.byte2 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = (cpu.byte2 << 8 | cpu.byte1) + cpu.regX;
+  cpu.dataAddress = (cpu.byte2! << 8 | cpu.byte1!) + cpu.regX;
 
   if (isPageCrossed(cpu.dataAddress, cpu.dataAddress - cpu.regX) && cpu.op.increaseCycleWhenCrossPage) cpu.cycles++;
 }
@@ -261,7 +268,7 @@ AbsoluteY(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
   cpu.byte2 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = (cpu.byte2 << 8 | cpu.byte1) + cpu.regY;
+  cpu.dataAddress = (cpu.byte2! << 8 | cpu.byte1!) + cpu.regY;
 
   if (isPageCrossed(cpu.dataAddress, cpu.dataAddress - cpu.regY) && cpu.op.increaseCycleWhenCrossPage) cpu.cycles++;
 }
@@ -279,7 +286,7 @@ Relative(CPU cpu) {
   // offset is a signed integer
   cpu.byte1 = cpu.read(cpu.regPC++);
 
-  int offset = cpu.byte1 >= 0x80 ? cpu.byte1 - 0x100 : cpu.byte1;
+  int offset = cpu.byte1! >= 0x80 ? cpu.byte1! - 0x100 : cpu.byte1!;
   cpu.dataAddress = cpu.regPC + offset;
 }
 
@@ -287,18 +294,18 @@ Indirect(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
   cpu.byte2 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = cpu.read16BitUncrossPage((cpu.byte2 << 8 | cpu.byte1));
+  cpu.dataAddress = cpu.read16BitUncrossPage((cpu.byte2! << 8 | cpu.byte1!));
 }
 
 IndexedIndirect(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
 
-  cpu.dataAddress = cpu.read16BitUncrossPage((cpu.byte1 + cpu.regX) & 0xff);
+  cpu.dataAddress = cpu.read16BitUncrossPage((cpu.byte1! + cpu.regX) & 0xff);
 }
 
 IndirectIndexed(CPU cpu) {
   cpu.byte1 = cpu.read(cpu.regPC++);
-  cpu.dataAddress = cpu.read16BitUncrossPage(cpu.byte1) + cpu.regY;
+  cpu.dataAddress = cpu.read16BitUncrossPage(cpu.byte1!) + cpu.regY;
 
   if (isPageCrossed(cpu.dataAddress, cpu.dataAddress - cpu.regY) && cpu.op.increaseCycleWhenCrossPage) cpu.cycles++;
 }

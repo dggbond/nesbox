@@ -4,6 +4,8 @@ import 'bus.dart';
 
 // TODO: apu implements.
 class APU {
+  APU(this.bus);
+
   BUS bus;
 
   int readRegister(int address) {
