@@ -34,13 +34,11 @@ void main() {
         cpuLog = cpuLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
       }
 
-      String b1 = cpu.byte1!.toHex(2);
-      String b2 = cpu.byte2!.toHex(2);
+      String? b1 = cpu.byte1?.toHex(2);
+      String? b2 = cpu.byte2?.toHex(2);
 
-      String data = cpu.byte1 != null ? b1 : '';
-      if (cpu.byte2 != null) {
-        data += ' $b2';
-      }
+      String data = b1 ?? '';
+      data += b2 != null ? ' $b2' : '';
       cpuLog = cpuLog.replaceFirst('data', data.padRight(5, ' '));
 
       switch (cpu.op.mode) {
