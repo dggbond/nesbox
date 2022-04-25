@@ -5,7 +5,7 @@ import 'dart:typed_data';
 import 'cpu.dart';
 import 'cartridge.dart' show Mirroring;
 import 'bus.dart';
-import 'util/util.dart';
+import 'util/int_extension.dart';
 import 'frame.dart';
 import 'palette.dart';
 

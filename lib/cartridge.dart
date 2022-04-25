@@ -3,7 +3,7 @@ library nesbox.cartridge;
 import "dart:typed_data";
 
 import 'mapper.dart';
-import 'util/util.dart';
+import 'util/int_extension.dart';
 
 const int PRG_BANK_SIZE = 0x4000;
 const int CHR_BANK_SIZE = 0x2000;

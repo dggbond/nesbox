@@ -1,7 +1,7 @@
 library nesbox.cpu;
 
 import 'bus.dart';
-import 'util/util.dart';
+import 'util/int_extension.dart';
 
 enum CpuInterrupt {
   Nmi,

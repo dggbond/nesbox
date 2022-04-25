@@ -1,4 +1,4 @@
-import 'package:nesbox/util/util.dart';
+import 'package:nesbox/util/int_extension.dart';
 import "package:test/test.dart";
 
 void main() {
