@@ -208,11 +208,21 @@ class PPU {
   _renderPixel() {
     int x = cycle - 1, y = scanline;
 
+    int backgroundPixel = _renderBGPixel();
+
+    frame.setPixel(
+      x,
+      y,
+      backgroundPixel,
+    );
+  }
+
+  _renderBGPixel() {
     int currentTile = bgTile >> 32;
     int palette = currentTile >> ((7 - regX) * 4);
     int entry = bus.ppuPalettes[palette & 0x0f];
 
-    frame.setPixel(x, y, NES_SYS_PALETTES[entry]!);
+    return NES_SYS_PALETTES[entry] ?? 0;
   }
 
   _fetchNameTableByte() {

@@ -33,7 +33,7 @@ class NesBox {
     }
   }
 
-  stepInsruction() {
+  stepInstruction() {
     do {
       clock();
     } while (cpu.cycles != 0);

@@ -87,5 +87,5 @@ parseNesFile(Cardtridge card) {
   int lowerMapper = card.rom[6] & 0xf0;
   int upperMapper = card.rom[7] & 0xf0;
 
-  createMapper(card, upperMapper | lowerMapper >> 4);
+  Mapper.create(card, upperMapper | lowerMapper >> 4);
 }

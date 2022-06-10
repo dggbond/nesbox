@@ -1,10 +1,15 @@
 # Nesbox
 A nes emulator written in dart without dependencies.
 
-## Demo App
-this dart package has **no other dependencies** at all, all of codes is written in the [`lib`](lib) folder.
-so you can't see the game graphics if you just only run this package. if you want to see the actual effect of this emulator.
-you can run the demo project [Fico](https://github.com/tilemoon/Fico)
+## Example App
+if you are using `vscode`, just open debug tab and run the fico project.
+
+or you can run the code below
+
+```bash
+$ cd examples/fico
+$ flutter run -d macos
+```
 
 ## Getting Started
 there is no package published yet.

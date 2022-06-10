@@ -7,6 +7,13 @@ abstract class Mapper {
 
   Cardtridge card;
 
+  static create(Cardtridge card, int mapperID) {
+    switch (mapperID) {
+      case 0:
+        card.mapper = Mapper0(card);
+    }
+  }
+
   int read(int address) {
     // TODO: implements
     return 0;
@@ -52,12 +59,5 @@ class Mapper0 extends Mapper {
       if (card.battery) card.sRAM[address - 0x6000] = value;
     }
     return;
-  }
-}
-
-createMapper(Cardtridge card, int mapperID) {
-  switch (mapperID) {
-    case 0:
-      card.mapper = Mapper0(card);
   }
 }

@@ -5,25 +5,68 @@ import 'package:nesbox/util/int_extension.dart';
 
 import "dart:io";
 
-int simulateCpuAddressing(CPU cpu) {
-  int beginRegPC = cpu.regPC; // used for restore initial regPC
-  int beginCycles = cpu.cycles;
-  int opcode = cpu.read(cpu.regPC++);
+class NesLog {
+  NesLog({
+    required this.regPC,
+    required this.opcode,
+    required this.bytes,
+    required this.instructionAbbr,
+    required this.addressingDisplay,
+    required this.regA,
+    required this.regX,
+    required this.regY,
+    required this.regPS,
+    required this.regSP,
+    required this.cpuCycles,
+    required this.ppuFrames,
+    required this.ppuCycles,
+  });
 
-  cpu.op = OP_TABLE[opcode]!;
-  cpu.byte1 = null;
-  cpu.byte2 = null;
+  int regPC;
+  int opcode;
+  int bytes;
+  String instructionAbbr;
+  String addressingDisplay;
 
-  if (cpu.op == null) {
-    throw 'Unknow opcode: ${opcode.toHex()}';
+  int regA;
+  int regX;
+  int regY;
+  int regPS;
+  int regSP;
+
+  int cpuCycles;
+
+  int ppuFrames;
+  int ppuCycles;
+
+  // log eg: C72F  B0 04     BCS $C735                       A:00 X:00 Y:00 P:27 SP:FB PPU:  0, 93 CYC:31
+  static NesLog from(String log) {
+    var r = RegExp(r"^(\w{4})  (\w{2}) (\w{2}|  ) (\w{2}|  ) [ *]([A-Z]{3}) (.+) " +
+        r"A:(\w{2}) X:(\w{2}) Y:(\w{2}) P:(\w{2}) SP:(\w{2}) PPU:([0-9 ]{3}),([0-9 ]{3}) CYC:(\d+)$");
+    var match = r.firstMatch(log);
+
+    if (match == null || match.groupCount != 14) {
+      print("log: $log");
+      throw "parse log failed";
+    }
+
+    var bytesStr = (match.group(4)! + match.group(3)!).trim();
+
+    return NesLog(
+        regPC: int.parse(match.group(1)!, radix: 16),
+        opcode: int.parse(match.group(2)!, radix: 16),
+        bytes: bytesStr != '' ? int.parse(bytesStr, radix: 16) : 0,
+        instructionAbbr: match.group(5)!,
+        addressingDisplay: match.group(6)!,
+        regA: int.parse(match.group(7)!, radix: 16),
+        regX: int.parse(match.group(8)!, radix: 16),
+        regY: int.parse(match.group(9)!, radix: 16),
+        regPS: int.parse(match.group(10)!, radix: 16),
+        regSP: int.parse(match.group(11)!, radix: 16),
+        ppuFrames: int.parse(match.group(12)!),
+        ppuCycles: int.parse(match.group(13)!),
+        cpuCycles: int.parse(match.group(14)!));
   }
-
-  cpu.op.mode.call(cpu); // get the address and fetched on cpu.
-
-  cpu.regPC = beginRegPC;
-  cpu.cycles = beginCycles;
-
-  return opcode;
 }
 
 void main() {
@@ -36,8 +79,8 @@ void main() {
 
     box.loadGame(File("testfiles/nestest.nes").readAsBytesSync());
     box.reset();
-    box.stepInsruction(); // consume the cycles that reset created.
-    box.cpu.regPC = 0xc000;
+    cpu.cycles = 0; // consume the cycles that reset created.
+    cpu.regPC = 0xc000;
 
     for (int index = 0;; index++) {
       if (index > testlogs.length - 1) {
@@ -45,102 +88,25 @@ void main() {
         return;
       }
 
-      int opcode = simulateCpuAddressing(cpu);
+      var log = NesLog.from(testlogs[index]);
 
-      String actualLog = cpu.regPC.toHex(4) + '  ${opcode.toHex()} ' + 'data';
-      actualLog += '${cpu.op.abbr.padLeft(5, ' ')} ADDRESS' +
-          'A:${cpu.regA.toHex()} ' +
-          'X:${cpu.regX.toHex()} ' +
-          'Y:${cpu.regY.toHex()} ' +
-          'P:${cpu.regPS.toHex()} ' +
-          'SP:${cpu.regSP.toHex()} ' +
-          'PPU:${ppu.scanline.toString().padLeft(3, " ")},${ppu.cycle.toString().padLeft(3, " ")} ' +
-          'CYC:${cpu.totalCycles}';
+      final opcode = cpu.read(cpu.regPC);
+      final opArgs = OP_ARGS_TABLE[opcode];
 
-      String fetched = cpu.fetch().toHex();
-
-      if (opcode == 0x4c || opcode == 0x20) {
-        actualLog = actualLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
+      if (opArgs == null) {
+        throw "unknow opcode ${opcode.toHex()}";
       }
 
-      String? b1 = cpu.byte1?.toHex(2);
-      String? b2 = cpu.byte2?.toHex(2);
+      Op op = Op(opcode, opArgs);
 
-      String data = b1 ?? '';
-      data += b2 != null ? ' $b2' : '';
-      actualLog = actualLog.replaceFirst('data', data.padRight(5, ' '));
+      // addressing
+      final result = op.mode.call(cpu);
+      var fetched = cpu.read(result.address);
 
-      switch (cpu.op.mode) {
-        case ZeroPage:
-          actualLog = actualLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex()} = $fetched'.padRight(28, ' '));
-          break;
-
-        case ZeroPageX:
-          actualLog =
-              actualLog.replaceFirst('ADDRESS', '\$$b1,X @ ${cpu.dataAddress.toHex()} = $fetched'.padRight(28, ' '));
-          break;
-
-        case ZeroPageY:
-          actualLog =
-              actualLog.replaceFirst('ADDRESS', '\$$b1,Y @ ${cpu.dataAddress.toHex()} = $fetched'.padRight(28, ' '));
-          break;
-
-        case Absolute:
-          actualLog = actualLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)} = $fetched'.padRight(28, ' '));
-          break;
-
-        case AbsoluteX:
-          actualLog = actualLog.replaceFirst(
-              'ADDRESS',
-              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},X @ ${cpu.dataAddress.toHex(4)} = $fetched'
-                  .padRight(28, ' '));
-          break;
-
-        case AbsoluteY:
-          actualLog = actualLog.replaceFirst(
-              'ADDRESS',
-              '\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)},Y @ ${cpu.dataAddress.toHex(4)} = $fetched'
-                  .padRight(28, ' '));
-          break;
-
-        case Indirect:
-          actualLog = actualLog.replaceFirst('ADDRESS',
-              '(\$${(cpu.byte2! << 8 | cpu.byte1!).toHex(4)}) = ${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
-          break;
-
-        case Implied:
-          actualLog = actualLog.replaceFirst('ADDRESS', ' '.padRight(28, ' '));
-          break;
-        case Accumulator:
-          actualLog = actualLog.replaceFirst('ADDRESS', 'A'.padRight(28, ' '));
-          break;
-
-        case Immediate:
-          actualLog = actualLog.replaceFirst('ADDRESS', '#\$$b1'.padRight(28, ' '));
-          break;
-
-        case Relative:
-          actualLog = actualLog.replaceFirst('ADDRESS', '\$${cpu.dataAddress.toHex(4)}'.padRight(28, ' '));
-          break;
-
-        case IndexedIndirect:
-          actualLog = actualLog.replaceFirst(
-              'ADDRESS',
-              '(\$$b1,X) @ ${((cpu.byte1! + cpu.regX) & 0xff).toHex()} = ${cpu.dataAddress.toHex(4)} = $fetched'
-                  .padRight(28, ' '));
-          break;
-
-        case IndirectIndexed:
-          actualLog = actualLog.replaceFirst(
-              'ADDRESS',
-              '(\$$b1),Y = ${(cpu.dataAddress - cpu.regY).toHex(4)} @ ${cpu.dataAddress.toHex(4)} = $fetched'
-                  .padRight(28, ' '));
-          break;
-      }
-
-      box.stepInsruction();
-
-      expect(actualLog, testlogs[index], reason: "at line:${index + 1}");
+      expect(cpu.regPC.toHex(), log.regPC.toHex(), reason: "regPC not expected at line: ${index + 1}");
+      expect(opcode.toHex(), log.opcode.toHex(), reason: "opcode not expected at line: ${index + 1}");
+      expect(result.bytes.toHex(), log.bytes.toHex(), reason: "bytes not expected at line: ${index + 1}");
+      box.stepInstruction();
     }
   });
 }
