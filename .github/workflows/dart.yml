@@ -36,7 +36,7 @@ jobs:
         run: dart analyze
 
       - name: Run util Tests
-        run: make test_util
+        run: dart test test/util_test.dart --chain-stack-traces
 
       - name: Run CPU Tests
-        run: make test_cpu
+        run: dart test test/cpu_test.dart --chain-stack-traces
