@@ -14,6 +14,7 @@ class NesBox {
   BUS bus = BUS();
 
   double fps = 0;
+  DateTime _lastFrameAt = DateTime.now();
 
   CPU get cpu => bus.cpu;
   PPU get ppu => bus.ppu;
@@ -38,13 +39,12 @@ class NesBox {
 
   Frame stepFrame() {
     int frame = ppu.frames;
-    var start = DateTime.now();
     while (ppu.frames == frame) {
       clock();
     }
 
-    // update fps
-    fps = 1000 / DateTime.now().difference(start).inMilliseconds;
+    fps = 1000 / DateTime.now().difference(_lastFrameAt).inMilliseconds;
+    _lastFrameAt = DateTime.now();
     return ppu.frame;
   }
 
