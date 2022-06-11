@@ -73,7 +73,7 @@ void main() {
   test("cpu test", () async {
     final testlogs = File("testfiles/nestest.txt").readAsLinesSync();
 
-    final box = new NesBox();
+    final box = NesBox();
     final cpu = box.cpu;
     final ppu = box.ppu;
 

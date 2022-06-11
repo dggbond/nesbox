@@ -2,6 +2,8 @@ library nesbox;
 
 import 'dart:typed_data';
 
+import 'package:nesbox/cartridge.dart';
+
 import 'cpu.dart';
 import 'ppu.dart';
 import 'bus.dart';
@@ -11,12 +13,11 @@ import 'frame.dart';
 class NesBox {
   BUS bus = BUS();
 
-  int targetFps = 60;
-  double fps = 60.0;
-  DateTime _lastFrameAt = DateTime.now();
+  double fps = 0;
 
   CPU get cpu => bus.cpu;
   PPU get ppu => bus.ppu;
+  Cardtridge get card => bus.card;
 
   // load nes rom data
   loadGame(Uint8List bytes) => bus.card.loadNesFile(bytes);
@@ -37,20 +38,14 @@ class NesBox {
 
   Frame stepFrame() {
     int frame = ppu.frames;
+    var start = DateTime.now();
     while (ppu.frames == frame) {
       clock();
     }
 
-    _updateFps();
+    // update fps
+    fps = 1000 / DateTime.now().difference(start).inMilliseconds;
     return ppu.frame;
-  }
-
-  _updateFps() {
-    DateTime now = DateTime.now();
-    if (_lastFrameAt != null) {
-      fps = 1000 / now.difference(_lastFrameAt).inMilliseconds;
-    }
-    _lastFrameAt = now;
   }
 
   reset() {

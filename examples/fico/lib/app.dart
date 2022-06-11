@@ -6,6 +6,8 @@ class FicoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GameScreen();
+    return MaterialApp(
+      home: Scaffold(body: GameScreen()),
+    );
   }
 }
