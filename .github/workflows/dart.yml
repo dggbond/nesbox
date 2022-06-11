@@ -32,8 +32,8 @@ jobs:
       #   run: dart format --output=none --set-exit-if-changed .
 
       # Consider passing '--fatal-infos' for slightly stricter analysis.
-      - name: Analyze project source
-        run: dart analyze
+      # - name: Analyze project source
+      #   run: dart analyze
 
       - name: Run util Tests
         run: dart test test/util_test.dart --chain-stack-traces

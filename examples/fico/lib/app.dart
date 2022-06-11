@@ -6,6 +6,6 @@ class FicoApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return const GameScreen();
+    return GameScreen();
   }
 }

@@ -1,6 +1,5 @@
 library nesbox;
 
-import 'dart:async';
 import 'dart:typed_data';
 
 import 'cpu.dart';
@@ -19,9 +18,6 @@ class NesBox {
   CPU get cpu => bus.cpu;
   PPU get ppu => bus.ppu;
 
-  StreamController<Frame> _frameStreamController = StreamController<Frame>();
-  Stream<Frame> get frameStream => _frameStreamController.stream;
-
   // load nes rom data
   loadGame(Uint8List bytes) => bus.card.loadNesFile(bytes);
 
@@ -39,14 +35,14 @@ class NesBox {
     } while (cpu.cycles != 0);
   }
 
-  stepFrame() {
+  Frame stepFrame() {
     int frame = ppu.frames;
     while (ppu.frames == frame) {
       clock();
     }
 
-    _frameStreamController.sink.add(ppu.frame);
     _updateFps();
+    return ppu.frame;
   }
 
   _updateFps() {
