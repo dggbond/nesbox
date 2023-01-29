@@ -1,6 +1,8 @@
 # Nesbox
 A nes emulator written in dart without dependencies.
 
+![Screenshot](/screenshots/Xnip2023-01-29_10-39-40.jpg)
+
 ## Example App
 if you are using `vscode`, just open debug tab and run the fico project.
 
