@@ -203,6 +203,12 @@ class PPU {
   int highBGTileByte = 0;
   int bgTile = 0;
 
+  int spriteCount = 0;
+  Uint32List spritePatterns = Uint32List(8);
+  Uint8List spritePositions = Uint8List(8);
+  Uint8List spritePriorities = Uint8List(8);
+  Uint8List spriteIndexes = Uint8List(8);
+
   Frame frame = Frame();
 
   _renderPixel() {
@@ -304,6 +310,7 @@ class PPU {
     regV = (regV & 0x841f) | (regT & 0x7be0);
   }
 
+  // get all registers data
   _evaluateSprites() {}
 
   // every cycle behaivor is here: https://wiki.nesdev.com/w/index.php/PPU_rendering#Line-by-line_timing
@@ -366,6 +373,16 @@ class PPU {
 
       if (isScanlineFetching && cycle == 257) {
         copyX();
+      }
+    }
+
+    if (isRenderingEnabled) {
+      if (cycle == 257) {
+        if (isScanlineVisible) {
+          _evaluateSprites();
+        } else {
+          spriteCount = 0;
+        }
       }
     }
 

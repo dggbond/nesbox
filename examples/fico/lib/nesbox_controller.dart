@@ -12,7 +12,7 @@ class NesBoxController {
 
   Timer? _frameLoopTimer;
 
-  Completer _gameLoadedCompleter = Completer();
+  final Completer _gameLoadedCompleter = Completer();
 
   late Future gameLoaded = _gameLoadedCompleter.future;
 

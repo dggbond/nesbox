@@ -91,21 +91,22 @@ void main() {
       var log = NesLog.from(testlogs[index]);
 
       final opcode = cpu.read(cpu.regPC);
-      final opArgs = OP_ARGS_TABLE[opcode];
+      final op = OP_TABLE[opcode];
 
-      if (opArgs == null) {
+      if (op == null) {
         throw "unknow opcode ${opcode.toHex()}";
       }
-
-      Op op = Op(opcode, opArgs);
 
       // addressing
       final result = op.mode.call(cpu);
       var fetched = cpu.read(result.address);
 
-      expect(cpu.regPC.toHex(), log.regPC.toHex(), reason: "regPC not expected at line: ${index + 1}");
-      expect(opcode.toHex(), log.opcode.toHex(), reason: "opcode not expected at line: ${index + 1}");
-      expect(result.bytes.toHex(), log.bytes.toHex(), reason: "bytes not expected at line: ${index + 1}");
+      expect(cpu.regPC.toHex(), log.regPC.toHex(),
+          reason: "regPC not expected at line: ${index + 1}");
+      expect(opcode.toHex(), log.opcode.toHex(),
+          reason: "opcode not expected at line: ${index + 1}");
+      expect(result.bytes.toHex(), log.bytes.toHex(),
+          reason: "bytes not expected at line: ${index + 1}");
       box.stepInstruction();
     }
   });

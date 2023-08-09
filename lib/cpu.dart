@@ -89,14 +89,13 @@ class CPU {
       handleInterrupt();
 
       final opcode = read(regPC);
-      final opArgs = OP_ARGS_TABLE[opcode];
+      final op = OP_TABLE[opcode];
 
-      if (opArgs == null) {
+      if (op == null) {
         throw "unknow opcode ${opcode.toHex()}";
       }
 
-      op = Op(opcode, opArgs);
-
+      this.op = op;
       cycles = op.cycles;
 
       // addressing
